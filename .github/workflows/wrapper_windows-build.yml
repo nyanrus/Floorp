@@ -23,7 +23,7 @@ run-name: ${{fromJSON('["[normal]","[profgen]"]')[inputs.profgen]}} Windows ${{f
 jobs:
   windows-build:
     name: win-${{fromJson('["no_pgo","pgo"]')[inputs.profgen]}}-x86_64
-    uses: ./.github/workflows/windows-build.yml
+    uses: ./.github/workflows/src/windows-build.yml
     with:
       profgen: ${{inputs.profgen}}
       aarch64: ${{inputs.aarch64}}
