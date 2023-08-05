@@ -53,7 +53,7 @@ jobs:
     runs-on: ${{ matrix.runs-on }}
     strategy:
       matrix:
-        runs-on: ['ubuntu-latest']
+        runs-on: ['buildjet-16vcpu-ubuntu-2204']
 
     steps:
     - name: Init
@@ -223,7 +223,7 @@ jobs:
     runs-on: ${{ matrix.runs-on }}
     strategy:
       matrix:
-        runs-on: ['ubuntu-latest']
+        runs-on: ['buildjet-16vcpu-ubuntu-2204']
 
     steps:
     - name: Init
@@ -337,7 +337,7 @@ jobs:
     - name: Package 📦
       run: |
         ./mach package
-        ./mach package-multi-locale --locales ar cs da de el en-GB en-US es-ES es-MX fr hu id it ja ko lt nl nn-NO pl pt-BR pt-PT ru sv-SE th vi zh-CN zh-TW
+        ./mach package-multi-locale --locales ar cs da de el en-GB en-US es-ES es-MX fr hu id it ja ko lt nl nn-NO pl pt-BR pt-PT ru sv-SE th tr vi zh-CN zh-TW
 
     - name: Copy 📂
       run: |
@@ -358,7 +358,7 @@ jobs:
     runs-on: ${{ matrix.runs-on }}
     strategy:
       matrix:
-        runs-on: ['ubuntu-latest']
+        runs-on: ['buildjet-16vcpu-ubuntu-2204']
     needs: get-display-version
     steps:
       - uses: actions/checkout@v3
@@ -449,7 +449,7 @@ jobs:
       - name: Package 📦
         run: |
           ./mach package
-          ./mach package-multi-locale --locales ar cs da de el en-GB en-US es-ES es-MX fr hu id it ja ko lt nl nn-NO pl pt-BR pt-PT ru sv-SE th vi zh-CN zh-TW
+          ./mach package-multi-locale --locales ar cs da de el en-GB en-US es-ES es-MX fr hu id it ja ko lt nl nn-NO pl pt-BR pt-PT ru sv-SE th tr vi zh-CN zh-TW
           mkdir -p output
           cp obj-x86_64-pc-linux-gnu/dist/*.tar.bz2 ./output/floorp-${{ needs.get-display-version.outputs.display-version }}.en-US.linux-x86_64.tar.bz2
 
@@ -472,7 +472,7 @@ jobs:
     runs-on: ${{ matrix.runs-on }}
     strategy:
       matrix:
-        runs-on: ['ubuntu-latest']
+        runs-on: ['buildjet-16vcpu-ubuntu-2204']
     needs: get-display-version
 
     steps:
@@ -569,7 +569,7 @@ jobs:
       - name: Package 📦
         run: |
           ./mach package
-          ./mach package-multi-locale --locales ar cs da de el en-GB en-US es-ES es-MX fr hu id it ja ko lt nl nn-NO pl pt-BR pt-PT ru sv-SE th vi zh-CN zh-TW
+          ./mach package-multi-locale --locales ar cs da de el en-GB en-US es-ES es-MX fr hu id it ja ko lt nl nn-NO pl pt-BR pt-PT ru sv-SE th tr vi zh-CN zh-TW
           mkdir -p output
           cp obj-aarch64-unknown-linux-gnu/dist/*.tar.bz2 ./output/floorp-${{ needs.get-display-version.outputs.display-version }}.en-US.linux-aarch64.tar.bz2
 
@@ -604,7 +604,7 @@ jobs:
     runs-on: ${{ matrix.runs-on }}
     strategy:
       matrix:
-        runs-on: ['ubuntu-latest']
+        runs-on: ['buildjet-16vcpu-ubuntu-2204']
 
     needs: [get-buildid]
 
@@ -784,7 +784,7 @@ jobs:
     runs-on: ${{ matrix.runs-on }}
     strategy:
       matrix:
-        runs-on: ['ubuntu-latest']
+        runs-on: ['buildjet-16vcpu-ubuntu-2204']
 
     needs: [generate-profdata-and-jarlog-AArch64, get-buildid]
 
@@ -899,7 +899,7 @@ jobs:
         export MOZ_BUILD_DATE=${{ needs.get-buildid.outputs.buildids }}
 
         ./mach package
-        export MOZ_CHROME_MULTILOCALE="ar cs da de el en-GB en-US es-ES es-MX fr hu id it ja ko lt nl nn-NO pl pt-BR pt-PT ru sv-SE th vi zh-CN zh-TW"
+        export MOZ_CHROME_MULTILOCALE="ar cs da de el en-GB en-US es-ES es-MX fr hu id it ja ko lt nl nn-NO pl pt-BR pt-PT ru sv-SE th tr vi zh-CN zh-TW"
         for AB_CD in $MOZ_CHROME_MULTILOCALE; do    ./mach build chrome-$AB_CD; done
         ./mach build
         ./mach package
@@ -923,7 +923,7 @@ jobs:
     runs-on: ${{ matrix.runs-on }}
     strategy:
       matrix:
-        runs-on: ['ubuntu-latest']
+        runs-on: ['buildjet-16vcpu-ubuntu-2204']
 
     needs: get-buildid
 
@@ -1092,7 +1092,7 @@ jobs:
     runs-on: ${{ matrix.runs-on }}
     strategy:
       matrix:
-        runs-on: ['ubuntu-latest']
+        runs-on: ['buildjet-16vcpu-ubuntu-2204']
 
     needs: [generate-profdata-and-jarlog-x86_64, get-buildid]
 
@@ -1206,7 +1206,7 @@ jobs:
         export MOZ_BUILD_DATE=${{ needs.get-buildid.outputs.buildids }}
 
         ./mach package
-        export MOZ_CHROME_MULTILOCALE="ar cs da de el en-GB en-US es-ES es-MX fr hu id it ja ko lt nl nn-NO pl pt-BR pt-PT ru sv-SE th vi zh-CN zh-TW"
+        export MOZ_CHROME_MULTILOCALE="ar cs da de el en-GB en-US es-ES es-MX fr hu id it ja ko lt nl nn-NO pl pt-BR pt-PT ru sv-SE th tr vi zh-CN zh-TW"
         for AB_CD in $MOZ_CHROME_MULTILOCALE; do    ./mach build chrome-$AB_CD; done
         ./mach build
         ./mach package
@@ -1535,20 +1535,16 @@ jobs:
 
     - name: Run GitHub Actions for Release x86_64 Windows MAR "Floorp-Projects/Floorp-Update" 🚀
       run: |
-        echo "Preparing to run GitHub Actions for Release x86_64 Windows MAR, waiting for 30 seconds"
-        sleep 30
-        curl -X POST \
-          -H "Authorization: token ${{ secrets.PAT }}" \
-          -H "Accept: application/vnd.github.v3+json" \
-          "https://api.github.com/repos/Floorp-Projects/Floorp-Updates/actions/workflows/deliver-updates-to-floorp-browser.yml/dispatches" \
-          -d '{
-            "ref": "main",
-            "inputs": {
-              "mar-url": "https://github.com/Floorp-Projects/Floorp/releases/download/v${{ needs.get-display-version.outputs.display-version }}/WINNT-x86_64.mar",
-              "os": "WINNT",
-              "arch": "x86_64"
-            }
-          }'
+         curl -X POST \
+           -H "Authorization: token ${{ secrets.PAT }}" \
+           -H "Accept: application/vnd.github.v3+json" \
+           "https://api.github.com/repos/Floorp-Projects/Floorp/actions/workflows/linux-build-x64-deb.yml/dispatches" \
+           -d '{
+             "ref": "ESR115",
+             "inputs": {
+              "tarball-url-x86-64": "https://github.com/Floorp-Projects/Floorp/releases/download/v${{ needs.get-display-version.outputs.display-version }}/floorp-${{ needs.get-display-version.outputs.display-version }}.en-US.linux-x86_64.tar.bz2"
+             }
+           }'
 
     - name: Run GitHub Actions for Release x86_64 Debian PPA Build 🚀
       run: |
@@ -1562,13 +1558,17 @@ jobs:
 
     - name: Run GitHub Actions for Release x86_64 Debian no PPA Build 🚀
       run: |
-        curl -X POST \
-          -H "Authorization: token ${{ secrets.PAT }}" \
-          -H "Accept: application/vnd.github.v3+json" \
-          "https://api.github.com/repos/Floorp-Projects/Floorp/actions/workflows/linux-build-x64-deb-noppa.yml/dispatches" \
-          -d '{
-            "ref": "ESR115"
-          }'
+         curl -X POST \
+           -H "Authorization: token ${{ secrets.PAT }}" \
+           -H "Accept: application/vnd.github.v3+json" \
+           "https://api.github.com/repos/Floorp-Projects/Floorp-Portable/actions/workflows/build.yml/dispatches" \
+           -d '{
+             "ref": "ESR115",
+              "inputs": {
+                "choice": "Release",
+                "version": "${{ needs.get-display-version.outputs.display-version }}"
+              }
+           }'
 
   Update-latest-json:
     needs: [build-linux-x86_64-with-PGO, build-linux-aarch64, cleanup-uselss-artifacts, Windows-x86_64-build-with-profdata-and-jarlog, get-display-version, Deploy-to-installer, Deploy-to-updater]

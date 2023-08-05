@@ -39,7 +39,7 @@ pref("floorp.material.effect.enable", false);//マテリアルモードの実装
 pref("floorp.disable.fullscreen.notification", false);//フルスクリーン通知を無効化
 pref("floorp.navbar.bottom", false);
 pref("floorp.tabs.showPinnedTabsTitle", false); //ピン留めされたタブのタイトルを表示
-pref("floorp.delete.browser.border", true); //ブラウザーの枠線削除＆丸くする
+pref("floorp.delete.browser.border", false); //ブラウザーの枠線削除＆丸くする
 
 //Fluerial UIの設定
 pref("floorp.fluerial.roundVerticalTabs",false); //垂直タブのタブの形 trueが横に引っ付けるやつ、falseは角丸長方形
@@ -99,6 +99,7 @@ pref("app.feedback.baseURL", "https://support.ablaze.one/");
 
 // 多段タブ
 pref("floorp.tabbar.style",0);
+pref("floorp.browser.tabs.verticaltab", false);
 pref("floorp.enable.multitab", false);
 pref("floorp.browser.tabbar.multirow.max.enabled", true);
 pref("floorp.browser.tabbar.multirow.newtab-inside.enabled", false);
@@ -134,6 +135,8 @@ pref("floorp.browser.workspace.all", "");
 pref("floorp.browser.workspace.tab.enabled",true);
 pref("floorp.browser.workspace.closePopupAfterClick", false);
 pref("floorp.browser.workspace.excludePinnedTabs", false);
+pref("floorp.browser.workspace.info", "[]");
+pref("floorp.browser.workspace.manageOnBMS", false);
 
 //タブバーの背景色
 pref("floorp.titlebar.favicon.color", false);

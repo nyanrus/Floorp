@@ -418,7 +418,7 @@ min-width: 0px !important;
 
 #workspace-button > .toolbarbutton-icon {
   border-radius: var(--tab-border-radius) 0px 0px var(--tab-border-radius) !important;
-  scale: 1.5;
+  scale: 1.3;
 }
 toolbar #workspace-button:not([disabled="true"]):is([open], [checked], :hover:active) > .toolbarbutton-icon,
 toolbar #workspace-button:not([disabled="true"], [checked], [open], :active):hover > .toolbarbutton-icon,
@@ -462,6 +462,7 @@ toolbar #workspace-button:not([disabled="true"], [checked], [open], :active):hov
 
 .workspace-item {
   border-radius: 5px;
+  margin-right: 3px !important;
   list-style-image: url("chrome://browser/skin/workspace-menu-check.svg");
 }
 
@@ -526,4 +527,21 @@ toolbar #workspace-button:not([disabled="true"], [checked], [open], :active):hov
 #wrapper-customizableui-special-spring1 , #wrapper-customizableui-special-spring2
 {
   display: none !important;
+}
+
+:root[inDOMFullscreen] :is(.browserContainer) > .browserStack > *,
+:root[inFullscreen]:not([macOSNativeFullscreen]) :is(.browserContainer) > .browserStack > * {
+  border: none !important;
+  border-radius: 0 !important;
+}
+
+:root[inFullscreen]:not([macOSNativeFullscreen]) #tabbrowser-tabbox[flex],
+:root[inFullscreen]:not([macOSNativeFullscreen]) #tabbrowser-tabpanels[flex] {
+  clip-path: inset(0px 0px 0px round 0 0) !important;
+  border-radius: 0 !important;
+  border: none !important;
+}
+
+:root[inFullscreen]:not([macOSNativeFullscreen]) .browser-sidebar2[style] {
+  border: none !important;
 }
