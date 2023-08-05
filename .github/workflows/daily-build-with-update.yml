@@ -70,7 +70,7 @@ jobs:
 #? Original branding of the code is official
 #? It seems in PGO build, branding is not important in NOT deploying binary
   build-win-x86_64-profgen:
-    uses: ./.github/workflows/src/windows-build.yml
+    uses: ./.github/workflows/windows-build.yml
     with:
       profgen: true
       aarch64: false
@@ -125,7 +125,7 @@ jobs:
 
   build-win-x86_64-with-profdata-and-jarlog:
     needs: [win-x86_64-gen-profdata-and-jarlog,get-buildid]
-    uses: ./.github/workflows/src/windows-build.yml
+    uses: ./.github/workflows/windows-build.yml
     with:
       aarch64: false
       mar: true
@@ -170,7 +170,7 @@ jobs:
 #TODO! ####################WILL REPLACE S############################
   build-linux-x86_64-PGO:
     needs: [win-x86_64-gen-profdata-and-jarlog,get-buildid]
-    uses: ./.github/workflows/src/linux-build.yml
+    uses: ./.github/workflows/linux-build.yml
     with:
       aarch64: false
       beta: true

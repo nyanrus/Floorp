@@ -21,6 +21,6 @@ run-name: >
 jobs:
   linux-build:
     name: linux-${{fromJson('["x86_64","aarch64"]')[inputs.aarch64]}}
-    uses: ./.github/workflows/src/linux-build.yml
+    uses: ./.github/workflows/linux-build.yml
     with:
       aarch64: ${{inputs.aarch64}}
