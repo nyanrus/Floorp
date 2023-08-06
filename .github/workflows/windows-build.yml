@@ -255,7 +255,7 @@ jobs:
         else
           cp obj-${arch}-pc-windows-msvc/dist/floorp-*.en-US.${arch_inst}.zip $RUNNER_USERDIR/output/
           7z x $RUNNER_USERDIR/output/floorp-*.en-US.${arch_inst}.zip
-          tar -I "zstd -T4 -10" --remove-files -cvf $RUNNER_USERDIR/output/floorp-${cat browser/config/version.txt}.en-us.win64.tar.zst floorp
+          tar -I "zstd -T4 -10" --remove-files -cvf $RUNNER_USERDIR/output/floorp-$(cat browser/config/version.txt).en-us.win64.tar.zst floorp
           rm $RUNNER_USERDIR/output/floorp-*.en-US.${arch_inst}.zip
         fi
         #? Original code used in daily b with update
