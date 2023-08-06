@@ -30,9 +30,9 @@ jobs:
           npm install @octokit/rest
 
       - name: get workflow
-        shell: node --experimental-modules {0}
+        shell: node {0}
         run: |
-          import { Octokit } from "@octokit/rest";
+          const { Octokit } = require("@octokit/rest");
 
           const repo = "${{github.repository}}".split("/")
 
