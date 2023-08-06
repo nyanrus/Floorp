@@ -169,7 +169,6 @@ jobs:
 
 #TODO! ####################WILL REPLACE S############################
   build-linux-x86_64-PGO:
-    needs: [win-x86_64-gen-profdata-and-jarlog,get-buildid]
     uses: ./.github/workflows/linux-build.yml
     with:
       aarch64: false
