@@ -7,7 +7,7 @@
 
 #TODO daily build not changed about cache and refactoring
 
-name: "(B) 📅 Daily Build with auto-update without mac"
+name: "(B) 📅❌🍎 Daily Build with auto-update without mac"
 
 permissions:
   contents: write
