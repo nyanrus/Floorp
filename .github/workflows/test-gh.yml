@@ -44,14 +44,20 @@ jobs:
         shell: node {0}
         run: |
           const { Octokit } = require("@octokit/rest");
+          const repo = "${{github.repository}}".split("/");
 
-          const repo = "${{github.repository}}".split("/")
+          const octokit = new Octokit({auth: "${{github.token}}"});
 
-          console.log(await octokit.rest.actions.getWorkflowRun({
-            repo[0], // owner
-            repo[1],
-            "${{github.run_id}}",
-          }));
+          octokit.rest.actions
+            .getWorkflowRun({
+              owner: repo[0], // owner
+              repo: repo[1],
+              run_id: ${{github.run_id}},
+            })
+            .then((res) => {
+              console.log(res);
+            });
+
       - name: bash string test
         run: |
           echo ${{github.run_id}}
