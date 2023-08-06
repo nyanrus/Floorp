@@ -34,6 +34,16 @@ on:
       beta:
         type: boolean
         default: false
+      #! does not compartible with aarch64
+      #? maybe light change needed to fix
+      mar:
+        type: boolean
+        default: false
+    outputs:
+      mar_name:
+        value: ${{jobs.linux-build.outputs.mar_name}}
+      mar_size:
+        value: ${{jobs.linux-build.outputs.mar_size}}
 
 
 # name: Linux Build
@@ -42,6 +52,9 @@ on:
 jobs:
   linux-build:
     runs-on: ubuntu-latest
+    outputs:
+      mar_name: ${{steps.mar.outputs.MAR_NAME}}
+      mar_size: ${{steps.mar.outputs.MAR_SIZE}}
     steps:
 
     - uses: actions/checkout@v3
@@ -201,6 +214,21 @@ jobs:
       env:
         GHA_aarch64: ${{inputs.aarch64}}
         GHA_raw: ${{inputs.with_raw}}
+
+    - name: Create MAR artifact if mar📦
+      id: gen-mar
+      if: inputs.mar
+      run: |
+        touch "obj-x86_64-pc-linux-gnu/dist/floorp/precomplete"
+        MAR="obj-x86_64-pc-linux-gnu/dist/host/bin/mar" \
+        MOZ_PRODUCT_VERSION=$(cat browser/config/version_display.txt) \
+        MAR_CHANNEL_ID=release \
+        ./tools/update-packaging/make_full_update.sh ./output "obj-x86_64-pc-linux-gnu/dist/floorp"
+
+        mv ./output/*.mar ./output/LINUX-x86_64.mar
+
+        echo "MAR_NAME=LINUX-x86_64.mar" >> $GITHUB_OUTPUT
+        echo "MAR_SIZE=$(stat -c "%s" ./output/LINUX-x86_64.mar)" >> $GITHUB_OUTPUT
 
     #PUBLISH START
     - name: Publish🎁

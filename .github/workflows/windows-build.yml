@@ -31,6 +31,8 @@ on:
       beta_branding:
         type: boolean
         default: false
+      #! does not compartible with aarch64
+      #? maybe light change needed to fix
       mar:
         type: boolean
         default: false

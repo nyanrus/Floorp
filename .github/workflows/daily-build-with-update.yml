@@ -18,6 +18,8 @@ on:
   schedule:
     - cron: '0 21 * * *'
 
+
+#----------------------------------------- JOBS -----------------------------------------#
 jobs:
   get-display-version:
     runs-on: ubuntu-latest
@@ -66,7 +68,8 @@ jobs:
         bdat=`date +"%Y%m%d%I%M%S"`
         echo "bid=${bdat}" >> $GITHUB_OUTPUT
 
-#TODO! ####################WILL REPLACE S############################
+#----------------------------------------- WIN -----------------------------------------#
+
 #? Original branding of the code is official
 #? It seems in PGO build, branding is not important in NOT deploying binary
   build-win-x86_64-profgen:
@@ -75,7 +78,6 @@ jobs:
       profgen: true
       aarch64: false
       zstd: true
-#TODO! ####################WILL REPLACE E############################
 
   win-x86_64-gen-profdata-and-jarlog:
 
@@ -134,7 +136,7 @@ jobs:
       out_artifact_name: please-use-this-floorp-windows-x86_64-package-build-with-profdata-and-jarlog
       MOZ_BUILD_DATE: ${{needs.get-buildid.outputs.buildids}}
 
-  win-x86_64-gen-mar:
+  win-x86_64-gen-update-xml:
     needs: [get-display-version, get-buildid, get-inside-version,build-win-x86_64-with-profdata-and-jarlog]
     runs-on: ubuntu-latest
     steps:
@@ -166,8 +168,7 @@ jobs:
           WINNT-x86_64.xml
 
 ######################################################## ↑ Windows x86_64 ########################################################
-
-#TODO! ####################WILL REPLACE S############################
+#----------------------------------------- LINUX -----------------------------------------#
   build-linux-x86_64-PGO:
     uses: ./.github/workflows/linux-build.yml
     with:
@@ -175,25 +176,10 @@ jobs:
       beta: true
 
   #TODO: integrate to linux build like windows-build
-  update-linux-mar:
+  linux-x86_64-gen-update-xml:
     runs-on: 'ubuntu-latest'
     needs: [build-linux-x86_64-PGO,get-display-version,get-inside-version,get-buildid]
     steps:
-      - name: Create MAR artifact 📦
-        run: |
-          touch "obj-x86_64-pc-linux-gnu/dist/floorp/precomplete"
-          MAR="obj-x86_64-pc-linux-gnu/dist/host/bin/mar"
-          MOZ_PRODUCT_VERSION=${DISPVER}
-          MAR_CHANNEL_ID=release
-          ./tools/update-packaging/make_full_update.sh ./output "obj-x86_64-pc-linux-gnu/dist/floorp"
-
-          mv ./output/*.mar ./output/LINUX-x86_64.mar
-          stat -c "%s" ./output/LINUX-x86_64.mar > LINUX-MAR-sizes.txt
-          export LINUX_MAR_SIZE=`stat -c "%s" ./output/LINUX-x86_64.mar`
-          echo "LINUX_MAR_SIZE=$LINUX_MAR_SIZE" >> $GITHUB_ENV
-        env:
-          DISPVER: ${{needs.get-display-version.outputs.display-version}}
-
       - name: generate update XML file
         run: |
           echo '<?xml version="1.0" encoding="UTF-8"?>
@@ -212,20 +198,22 @@ jobs:
                 size="${LINUX_MAR_SIZE}"
               />
             </update>
-          </updates>' > output/LINUX-x86_64.xml
+          </updates>' > LINUX-x86_64.xml
         env:
           DISPVER: ${{needs.get-display-version.outputs.display-version}}
           INSDVER: ${{needs.get-inside-version.outputs.inside-version}}
           BUILDID: ${{needs.get-buildid.outputs.buildids}}
           GHREPO: ${{github.repository}}
-
-
-
-#TODO! ####################WILL REPLACE E############################
+      - name: Publish 🎁
+        uses: actions/upload-artifact@v3
+        with:
+          name: update-xml-floorp-linux-x86_64
+          path: |
+            LINUX-x86_64.xml
 
 ################################################################ ↑ Linux x86_64 Build ####################################################################################
 
-#! WANT REPLACE S
+#----------------------------------------- mac arm64 -----------------------------------------#
   build-macOS-aarch64-with-profgen:
     runs-on: 'ubuntu-latest'
 
@@ -569,7 +557,7 @@ jobs:
 
 ##################################################################### Intel Build #######################################################################################################
 
-#! WANT REPLACE
+#----------------------------------------- mac x64 -----------------------------------------#
   build-macOS-x86_64-with-profgen:
     runs-on: 'ubuntu-latest'
     steps:
@@ -904,6 +892,7 @@ jobs:
 
 ######################################################## Integration #######################################################
 
+#----------------------------------------- mac universal -----------------------------------------#
   macOS-gen-universal-bin:
     needs: [build-macOS-x86_64-with-profdata-and-jarlog, build-macOS-aarch64-with-profdata-and-jarlog, get-display-version, get-buildid, get-inside-version]
     runs-on: macos-latest
@@ -1035,9 +1024,9 @@ jobs:
           ./output/DARWIN-Universal.xml
 
 ##################################################################### Deployments #######################################################################################################
-
+#----------------------------------------- deploy -----------------------------------------#
   Deployments:
-    needs: [get-display-version, get-buildid, get-inside-version, update-linux-mar, build-win-x86_64-with-profdata-and-jarlog, macOS-gen-universal-bin]
+    needs: [get-display-version, get-buildid, get-inside-version, linux-x86_64-gen-update-xml, win-x86_64-gen-update-xml, macOS-gen-universal-bin]
     runs-on: ubuntu-latest
     environment:
       name: Deploy-to-stable-release
@@ -1061,10 +1050,22 @@ jobs:
         name: floorp-linux-x64
         path: ~/downloads/artifacts/linux-x64
 
-    - name: download Windows x64_86 build artifact📥
+    - name: download Linux x86_64 build artifact 📥
+      uses: actions/download-artifact@v3
+      with:
+        name: update-xml-floorp-linux-x86_64
+        path: ~/downloads/artifacts/linux-x64
+
+    - name: download Windows x86_64 build artifact📥
       uses: actions/download-artifact@v3
       with:
         name: please-use-this-floorp-windows-x86_64-package-build-with-profdata-and-jarlog
+        path: ~/downloads/artifacts/windows-x64
+
+    - name: download Windows x86_64 update xml📥
+      uses: actions/download-artifact@v3
+      with:
+        name: update-xml-floorp-win-x86_64
         path: ~/downloads/artifacts/windows-x64
 
     - name: download macOS x86_64 build artifact📥
