@@ -36,6 +36,22 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: 'lts/*'
+      - name: install octokit/rest.js
+        run: |
+          npm install @octokit/rest
+
+      - name: get workflow
+        shell: node {0}
+        run: |
+          import { Octokit } from "@octokit/rest";
+
+          const repo = "${{github.repository}}".split("/")
+
+          console.log(await octokit.rest.actions.getWorkflowRun({
+            repo[0], // owner
+            repo[1],
+            "${{github.run_id}}",
+          }));
       - name: bash string test
         run: |
           echo ${{github.run_id}}
@@ -55,7 +71,7 @@ jobs:
       - name: Check storage usage 1
         run: |
           df -h
-          
+
           #? https://stackoverflow.com/questions/11231937/bash-ignoring-error-for-a-particular-command
           sudo du -shc /* || true
           sudo du -shc /opt/* || true
@@ -63,7 +79,7 @@ jobs:
           sudo du -shc /usr/share/* || true
           sudo du -shc /usr/local/* || true
           sudo du -shc /usr/local/lib/* || true
-          
+
       - name: package remove
         run: |
           sudo apt clean

@@ -21,11 +21,26 @@ jobs:
   hallo:
     runs-on: ubuntu-latest
     steps:
-      - name: echo hallo
+      - name: check setup Node.js time
+        uses: actions/setup-node@v3
+        with:
+          node-version: 'lts/*'
+      - name: install octokit/rest.js
         run: |
-          echo ${{github.run_id}}
-          cat $GITHUB_EVENT_PATH
-          echo hallo
+          npm install @octokit/rest
+
+      - name: get workflow
+        shell: node {0}
+        run: |
+          import { Octokit } from "@octokit/rest";
+
+          const repo = "${{github.repository}}".split("/")
+
+          console.log(await octokit.rest.actions.getWorkflowRun({
+            repo[0], // owner
+            repo[1],
+            "${{github.run_id}}",
+          }));
       - name: echo hallo2
         run: |
           echo ${{github.run_id}}
