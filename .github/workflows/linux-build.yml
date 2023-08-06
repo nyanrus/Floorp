@@ -146,22 +146,22 @@ jobs:
         GHA_beta: ${{inputs.beta}}
       shell: python3 {0}
 
-
-    - name: Copy l10n files if beta
-      if: inputs.beta
-      run: |
-        for dir in $(ls -l $RUNNER_USERDIR/l10n-central/l10n-central | grep ^d | awk '{print $9}'); do
-          mkdir -p $RUNNER_USERDIR/l10n-central/l10n-central/$dir/browser/branding/beta
-          cp ./browser/branding/beta/locales/en-US/brand.dtd $RUNNER_USERDIR/l10n-central/l10n-central/$dir/browser/branding/beta/brand.dtd
-          cp ./browser/branding/beta/locales/en-US/brand.ftl $RUNNER_USERDIR/l10n-central/l10n-central/$dir/browser/branding/beta/brand.ftl
-          cp ./browser/branding/beta/locales/en-US/brand.properties $RUNNER_USERDIR/l10n-central/l10n-central/$dir/browser/branding/beta/brand.properties
-        done
-
     - name: Change update url if beta
       if: inputs.beta
       run: |
         sed -i 's|https://@MOZ_APPUPDATE_HOST@/browser/%DISPLAY_VERSION%/%OS%/%ARCH%/update.xml|https://@MOZ_APPUPDATE_HOST@/${{ github.repository }}/releases/download/beta/LINUX-x86_64.xml |g' ./build/application.ini.in
         sed -i 's/floorp-update.ablaze.one/github.com/g' ./build/moz.build
+
+    #On Package, if not copies, error occur
+    - name: Copy l10n files if beta
+      if: inputs.beta
+      run: |
+          for dir in $(ls -l $PWD/l10n-central/l10n-central | grep ^d | awk '{print $9}'); do
+            mkdir -p $PWD/l10n-central/l10n-central/$dir/browser/branding/beta
+            cp ./browser/branding/beta/locales/en-US/brand.dtd $PWD/l10n-central/l10n-central/$dir/browser/branding/beta/brand.dtd
+            cp ./browser/branding/beta/locales/en-US/brand.ftl $PWD/l10n-central/l10n-central/$dir/browser/branding/beta/brand.ftl
+            cp ./browser/branding/beta/locales/en-US/brand.properties $PWD/l10n-central/l10n-central/$dir/browser/branding/beta/brand.properties
+          done
 
     - name: Build 🔨
       run: |
