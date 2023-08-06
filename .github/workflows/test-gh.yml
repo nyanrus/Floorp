@@ -41,7 +41,7 @@ jobs:
           npm install @octokit/rest
 
       - name: get workflow
-        shell: node --import=module {0}
+        shell: node --input-type=module {0}
         run: |
           import { Octokit } from "@octokit/rest";
 
