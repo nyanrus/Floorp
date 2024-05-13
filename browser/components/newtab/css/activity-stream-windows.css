@@ -1270,23 +1270,18 @@ main.has-snippet {
   display: inline-block;
   height: 82px;
   width: 82px;
-  background: url("chrome://branding/content/about-logo.png") no-repeat center;
+  background: url("chrome://branding/content/about-logo.svg") no-repeat center;
   background-size: 82px;
-}
-@media (min-resolution: 2x) {
-  .search-wrapper .logo-and-wordmark .logo {
-    background-image: url("chrome://branding/content/about-logo@2x.png");
-  }
 }
 .search-wrapper .logo-and-wordmark .wordmark {
   background: url("chrome://branding/content/firefox-wordmark.svg") no-repeat center center;
-  background-size: 300px;
+  background-size: 134px;
   -moz-context-properties: fill;
   display: inline-block;
   fill: var(--newtab-wordmark-color);
-  height: 100px;
-  margin-inline-start: 25px;
-  width: 300px;
+  height: 82px;
+  margin-inline-start: 16px;
+  width: 134px;
 }
 @media (max-width: 609px) {
   .search-wrapper .logo-and-wordmark .logo {
