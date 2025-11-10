@@ -11,14 +11,16 @@ export let manager: DownloadBarManager;
 // THIS CANNOT BE HOT RELOADED
 // TODO: REMOVE ALL CREATE_ROOT_HMR
 
+let disposeDownloadBar: (() => void) | null = null;
+
 export function init() {
-  createRoot(() => {
+  disposeDownloadBar = createRoot((dispose) => {
     manager = new DownloadBarManager();
 
     manager.init();
     // console.log(manager.showDownloadBar());
     if (!manager.showDownloadBar()) {
-      return;
+      return dispose;
     }
     document.getElementById("downloadsPanel")?.remove();
     render(DonwloadBar, document.getElementById("appcontent"));
@@ -42,12 +44,26 @@ export function init() {
       DownloadsView.onDownloadAdded_hook(download);
     };
     const scrollElem = document.getElementById("downloadsListBox");
-    scrollElem?.addEventListener("wheel", (e) => {
+    const wheelHandler = (e: WheelEvent) => {
       if (Math.abs(e.deltaY) < Math.abs(e.deltaX)) {
         return;
       }
       e.preventDefault();
       scrollElem.scrollLeft += e.deltaY * 10;
-    });
+    };
+    scrollElem?.addEventListener("wheel", wheelHandler);
+    
+    // Return cleanup function that will be called by dispose
+    return () => {
+      scrollElem?.removeEventListener("wheel", wheelHandler);
+      dispose();
+    };
   });
+}
+
+export function cleanup() {
+  if (disposeDownloadBar) {
+    disposeDownloadBar();
+    disposeDownloadBar = null;
+  }
 }

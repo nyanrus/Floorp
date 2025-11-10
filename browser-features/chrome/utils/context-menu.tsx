@@ -10,6 +10,7 @@ export namespace ContextMenuUtils {
   const contextMenuObserver: MutationObserver = new MutationObserver(() => {
     contextMenuObserverFunc();
   });
+  const observedNodes = new Set<Node>();
 
   function windowModalDialogElem(): XULElement | null {
     return document?.querySelector("#window-modal-dialog") as XULElement | null;
@@ -52,7 +53,10 @@ export namespace ContextMenuUtils {
     render(() => contextMenu, contentAreaContextMenu(), {
       marker: renderElement,
     });
-    contextMenuObserver.observe(targetNode, { attributes: true });
+    if (targetNode) {
+      contextMenuObserver.observe(targetNode, { attributes: true });
+      observedNodes.add(targetNode);
+    }
     checkItems.push(checkedFunction);
     contextMenuObserverFunc();
   }
@@ -61,6 +65,16 @@ export namespace ContextMenuUtils {
     for (const checkItem of checkItems) {
       checkItem();
     }
+  }
+
+  /**
+   * Cleanup function to disconnect observer and clear tracked nodes
+   * Should be called when context menu utilities are no longer needed
+   */
+  export function cleanup() {
+    contextMenuObserver.disconnect();
+    observedNodes.clear();
+    checkItems.length = 0;
   }
 
   export function addToolbarContentMenuPopupSet(JSXElem: () => JSXElement) {
