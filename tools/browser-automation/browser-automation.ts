@@ -78,11 +78,16 @@ export class BrowserAutomation {
 
   /**
    * Access the raw Marionette send function for low-level protocol access.
-   * This is needed for chrome context operations.
+   * This is needed for chrome context operations which aren't exposed by foxr's public API.
+   * 
+   * Note: This accesses a private method which could break with library updates.
+   * However, foxr doesn't provide a public API for context switching or chrome access,
+   * so this is the only way to implement these features.
    */
   private getSend(): ((name: string, params?: Record<string, unknown>, key?: string) => Promise<unknown>) | null {
     if (!this.browser) return null;
-    // Access the private _send method from the browser
+    // Access the private _send method from the browser instance
+    // This is necessary because foxr doesn't expose chrome context APIs publicly
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (this.browser as any)._send;
   }

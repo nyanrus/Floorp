@@ -308,7 +308,6 @@ class InteractiveShell {
           const ssChromeResult = await this.automation.screenshotChromeElement(ssChromeSelector, ssChromePath);
           console.log(ssChromeResult.success ? `✅ Chrome element screenshot saved: ${ssChromePath}` : `❌ ${ssChromeResult.error}`);
           break;
-          break;
 
         case "newpage":
           const newPage = await this.automation.newPage();

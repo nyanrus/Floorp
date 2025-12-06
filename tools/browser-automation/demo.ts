@@ -152,4 +152,7 @@ async function main() {
   }
 }
 
-main().catch(console.error);
+// Run if executed directly
+if (process.argv[1] && (process.argv[1].includes("demo") || process.argv[1].endsWith(".ts"))) {
+  main().catch(console.error);
+}

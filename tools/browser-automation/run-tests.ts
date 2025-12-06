@@ -270,9 +270,11 @@ class TestRunner {
   }
 }
 
-// Run tests
-const runner = new TestRunner();
-runner.run().catch((error) => {
-  console.error("Fatal error:", error);
-  process.exit(1);
-});
+// Run tests if executed directly
+if (process.argv[1] && (process.argv[1].includes("run-tests") || process.argv[1].endsWith(".ts"))) {
+  const runner = new TestRunner();
+  runner.run().catch((error) => {
+    console.error("Fatal error:", error);
+    process.exit(1);
+  });
+}
