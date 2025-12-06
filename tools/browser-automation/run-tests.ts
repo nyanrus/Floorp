@@ -193,7 +193,40 @@ class TestRunner {
         this.log("\n🧹 Cleaned up test screenshot");
       }
 
-      // Test 10: Remove datetime overlay
+      // Test 10: Take full window screenshot (chrome context)
+      const fullWindowScreenshotPath = join(__dirname, "test-fullwindow-screenshot.png");
+      await this.test("Take full window screenshot (chrome context)", async () => {
+        const result = await this.automation.screenshotFullWindow(fullWindowScreenshotPath);
+        if (!result.success) throw new Error(result.error);
+        if (!existsSync(fullWindowScreenshotPath)) throw new Error("Full window screenshot file not created");
+        
+        this.log(`   📸 Full window screenshot saved to: ${fullWindowScreenshotPath}`);
+      });
+
+      // Clean up full window screenshot
+      if (existsSync(fullWindowScreenshotPath)) {
+        unlinkSync(fullWindowScreenshotPath);
+        this.log("\n🧹 Cleaned up full window screenshot");
+      }
+
+      // Test 11: Evaluate in chrome context
+      await this.test("Evaluate JavaScript in chrome context", async () => {
+        const result = await this.automation.evaluateChrome(`
+          (function() {
+            // Get browser window title or some chrome element
+            var win = Services.wm.getMostRecentWindow("navigator:browser");
+            return {
+              windowType: win ? "navigator:browser" : null,
+              hasWindow: !!win
+            };
+          })()
+        `);
+        if (!result.success) throw new Error(result.error);
+        
+        this.log(`   🔧 Chrome context evaluation: ${JSON.stringify(result.value)}`);
+      });
+
+      // Test 12: Remove datetime overlay
       await this.test("Remove datetime overlay", async () => {
         const result = await this.automation.removeDateTimeOverlay();
         if (!result.success) throw new Error(result.error);

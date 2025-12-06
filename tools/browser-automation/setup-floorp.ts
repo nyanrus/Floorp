@@ -7,7 +7,7 @@
  */
 
 import { execSync } from "node:child_process";
-import { existsSync, mkdirSync, chmodSync, readdirSync } from "node:fs";
+import { existsSync, mkdirSync, chmodSync, readdirSync, statSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -41,7 +41,7 @@ export async function setupFloorp(): Promise<string> {
     throw new Error(`Failed to download Floorp binary: ${error}`);
   }
 
-  console.log("📦 Extracting Floorp binary...");
+  console.log("📦 Extracting Floorp binary (zip)...");
   
   // Extract the zip file
   try {
@@ -57,6 +57,17 @@ export async function setupFloorp(): Promise<string> {
     // Ignore cleanup errors
   }
 
+  // Find and extract the tar.xz file inside the zip
+  const tarXzFile = findTarXzFile(FLOORP_DIR);
+  if (tarXzFile) {
+    console.log("📦 Extracting Floorp binary (tar.xz)...");
+    try {
+      execSync(`tar -xJf "${tarXzFile}" -C "${FLOORP_DIR}"`, { stdio: "inherit" });
+    } catch (error) {
+      throw new Error(`Failed to extract tar.xz file: ${error}`);
+    }
+  }
+
   // Find and make the binary executable
   const binary = findFloorpBinary();
   if (!binary) {
@@ -69,23 +80,47 @@ export async function setupFloorp(): Promise<string> {
   return binary;
 }
 
+function findTarXzFile(dir: string): string | null {
+  if (!existsSync(dir)) return null;
+  
+  try {
+    const entries = readdirSync(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      const fullPath = join(dir, entry.name);
+      if (entry.isFile() && (entry.name.endsWith(".tar.xz") || entry.name.endsWith(".tar.zst"))) {
+        return fullPath;
+      }
+      if (entry.isDirectory() && entry.name !== "." && entry.name !== "..") {
+        const found = findTarXzFile(fullPath);
+        if (found) return found;
+      }
+    }
+  } catch {
+    // Ignore errors when reading directories
+  }
+  return null;
+}
+
 export function findFloorpBinary(): string | null {
   if (!existsSync(FLOORP_DIR)) {
     return null;
   }
 
-  // Look for floorp or firefox binary in common locations
+  // Look for floorp or firefox binary in common locations - prioritize nested paths
   const possiblePaths = [
-    join(FLOORP_DIR, "floorp"),
-    join(FLOORP_DIR, "firefox"),
     join(FLOORP_DIR, "floorp", "floorp"),
     join(FLOORP_DIR, "floorp", "firefox"),
     join(FLOORP_DIR, "firefox", "firefox"),
+    join(FLOORP_DIR, "floorp"),
+    join(FLOORP_DIR, "firefox"),
   ];
 
   for (const path of possiblePaths) {
     if (existsSync(path)) {
-      return path;
+      // Make sure it's a file, not a directory
+      if (statSync(path).isFile()) {
+        return path;
+      }
     }
   }
 

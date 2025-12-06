@@ -23,10 +23,12 @@ Navigation:
 Content:
   content                 - Get page HTML content
   setcontent <html>       - Set page HTML content
-  eval <script>           - Evaluate JavaScript
+  eval <script>           - Evaluate JavaScript in page context
+  eval-chrome <script>    - Evaluate JavaScript in chrome context (browser UI)
 
 Elements:
   find <selector>         - Find element by CSS selector
+  find-chrome <selector>  - Find element in chrome context
   click <selector>        - Click an element
   type <selector> <text>  - Type text into an element
   focus <selector>        - Focus an element
@@ -41,7 +43,9 @@ Testing:
   coverage                - Get Istanbul coverage data
 
 Screenshots:
-  screenshot [path]       - Take a screenshot
+  screenshot [path]           - Take a screenshot of page content
+  screenshot-full [path]      - Take full browser window screenshot (chrome + content)
+  screenshot-chrome <selector> [path] - Take screenshot of chrome element
 
 Browser:
   newpage                 - Create a new page/tab
@@ -157,6 +161,15 @@ class InteractiveShell {
           console.log(evalResult.success ? `Result: ${JSON.stringify(evalResult.value)}` : `❌ ${evalResult.error}`);
           break;
 
+        case "eval-chrome":
+          if (!args[0]) {
+            console.log("Usage: eval-chrome <script>");
+            break;
+          }
+          const evalChromeResult = await this.automation.evaluateChrome(args.join(" "));
+          console.log(evalChromeResult.success ? `Result: ${JSON.stringify(evalChromeResult.value)}` : `❌ ${evalChromeResult.error}`);
+          break;
+
         case "find":
           if (!args[0]) {
             console.log("Usage: find <selector>");
@@ -164,6 +177,19 @@ class InteractiveShell {
           }
           const element = await this.automation.findElement(args[0]);
           console.log(element ? "✅ Element found" : "❌ Element not found");
+          break;
+
+        case "find-chrome":
+          if (!args[0]) {
+            console.log("Usage: find-chrome <selector>");
+            break;
+          }
+          const chromeElement = await this.automation.findChromeElement(args[0]);
+          if (chromeElement.success) {
+            console.log(`✅ Chrome element: ${JSON.stringify(chromeElement.value, null, 2)}`);
+          } else {
+            console.log(`❌ ${chromeElement.error}`);
+          }
           break;
 
         case "click":
@@ -264,6 +290,24 @@ class InteractiveShell {
           const ssPath = args[0] || `screenshot-${Date.now()}.png`;
           const ssResult = await this.automation.screenshot(ssPath);
           console.log(ssResult.success ? `✅ Screenshot saved: ${ssPath}` : `❌ ${ssResult.error}`);
+          break;
+
+        case "screenshot-full":
+          const ssFullPath = args[0] || `screenshot-full-${Date.now()}.png`;
+          const ssFullResult = await this.automation.screenshotFullWindow(ssFullPath);
+          console.log(ssFullResult.success ? `✅ Full window screenshot saved: ${ssFullPath}` : `❌ ${ssFullResult.error}`);
+          break;
+
+        case "screenshot-chrome":
+          if (!args[0]) {
+            console.log("Usage: screenshot-chrome <selector> [path]");
+            break;
+          }
+          const ssChromeSelector = args[0];
+          const ssChromePath = args[1] || `screenshot-chrome-${Date.now()}.png`;
+          const ssChromeResult = await this.automation.screenshotChromeElement(ssChromeSelector, ssChromePath);
+          console.log(ssChromeResult.success ? `✅ Chrome element screenshot saved: ${ssChromePath}` : `❌ ${ssChromeResult.error}`);
+          break;
           break;
 
         case "newpage":

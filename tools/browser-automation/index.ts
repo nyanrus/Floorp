@@ -10,7 +10,8 @@
  * - DateTime overlay creation and testing
  * - Accessibility testing with aria-label verification
  * - Button interaction testing
- * - Screenshot capture
+ * - Screenshot capture (content and chrome context)
+ * - Chrome context (browser UI) manipulation
  * - Istanbul coverage data retrieval
  * 
  * SPDX-License-Identifier: MPL-2.0
@@ -21,6 +22,7 @@ export type {
   BrowserAutomationOptions,
   EvaluateResult,
   ScreenshotResult,
+  ChromeScreenshotOptions,
   AccessibilityTestResult,
   DateTimeOverlayResult,
 } from "./browser-automation.ts";

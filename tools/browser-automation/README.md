@@ -6,10 +6,12 @@ A Node.js tool for automating Floorp browser for testing using the Marionette pr
 
 - **Automatic Binary Setup**: Downloads and sets up Floorp dev binary automatically
 - **Interactive Shell**: CLI interface for LLM to control the browser
+- **Chrome Context Support**: Access and manipulate browser UI (toolbar, tabs, etc.)
+- **Full Window Screenshots**: Capture entire browser window including chrome UI
+- **Element Screenshots**: Screenshot specific elements by CSS selector
 - **DateTime Overlay**: Create and test datetime overlay in the top-right corner
 - **Accessibility Testing**: Verify aria-label and role attributes
 - **Button Testing**: Create and test button interactions
-- **Screenshots**: Capture page screenshots
 - **Istanbul Coverage**: Retrieve code coverage data when available
 
 ## Installation
@@ -27,26 +29,47 @@ pnpm install
 Run the interactive shell for manual testing:
 
 ```bash
-npx ts-node tools/browser-automation/shell.ts
+npx tsx tools/browser-automation/shell.ts
 
 # Or run with visible browser window:
-npx ts-node tools/browser-automation/shell.ts --headed
+npx tsx tools/browser-automation/shell.ts --headed
 ```
 
 Available commands:
+
+**Navigation:**
 - `navigate <url>` - Navigate to a URL
+- `url` - Get current URL
+- `title` - Get page title
+
+**Content & Evaluation:**
+- `eval <script>` - Evaluate JavaScript in page context
+- `eval-chrome <script>` - Evaluate JavaScript in chrome context (browser UI)
+
+**Elements:**
+- `find <selector>` - Find element in page
+- `find-chrome <selector>` - Find element in chrome context (browser UI)
+- `click <selector>` - Click an element
+- `type <selector> <text>` - Type text
+
+**Screenshots:**
+- `screenshot [path]` - Take content screenshot
+- `screenshot-full [path]` - Take full window screenshot (chrome + content)
+- `screenshot-chrome <selector> [path]` - Take screenshot of chrome element
+
+**Testing:**
 - `datetime` - Create datetime overlay
 - `verify-datetime` - Verify datetime overlay
 - `button <label>` - Create a test button
 - `test-button <selector>` - Test button click
 - `accessibility <selector>` - Test accessibility
-- `screenshot [path]` - Take a screenshot
+
 - `help` - Show all commands
 
 ### Run Automated Tests
 
 ```bash
-npx ts-node tools/browser-automation/run-tests.ts
+npx tsx tools/browser-automation/run-tests.ts
 ```
 
 ### Programmatic API
@@ -74,8 +97,17 @@ async function main() {
   const a11yResult = await automation.testAccessibility("#my-button");
   console.log("Accessibility passed:", a11yResult.passed);
 
-  // Take a screenshot
-  await automation.screenshot("screenshot.png");
+  // Take screenshots
+  await automation.screenshot("content.png");              // Content only
+  await automation.screenshotFullWindow("fullwindow.png"); // Chrome + content
+  await automation.screenshotChromeElement("#toolbar", "toolbar.png"); // Chrome element
+
+  // Evaluate in chrome context (browser UI)
+  const chromeResult = await automation.evaluateChrome(`
+    (function() {
+      return document.getElementById("nav-bar") ? "toolbar found" : "not found";
+    })()
+  `);
 
   // Close browser
   await automation.close();
@@ -112,10 +144,15 @@ Options:
 | `getContent()` | Get page HTML content |
 | `setContent(html)` | Set page HTML content |
 | `evaluate(script)` | Evaluate JavaScript in page context |
+| `evaluateChrome(script)` | Evaluate JavaScript in chrome context (browser UI) |
 | `findElement(selector)` | Find element by CSS selector |
+| `findChromeElement(selector)` | Find element in chrome context |
 | `click(selector)` | Click an element |
 | `type(selector, text)` | Type text into an element |
-| `screenshot(path?)` | Take a screenshot |
+| `screenshot(path?)` | Take a screenshot of page content |
+| `screenshotFullWindow(path?)` | Take full browser window screenshot |
+| `screenshotChrome(options)` | Take screenshot with chrome context options |
+| `screenshotChromeElement(selector, path?)` | Take screenshot of chrome element |
 | `createDateTimeOverlay()` | Create datetime overlay |
 | `verifyDateTimeOverlay()` | Verify datetime overlay |
 | `createTestButton(label, id?)` | Create a test button |
@@ -136,8 +173,18 @@ Options:
 
 ```bash
 # Run automated test suite
-npx ts-node tools/browser-automation/run-tests.ts
+npx tsx tools/browser-automation/run-tests.ts
+
+# Or using npm script
+pnpm browser:test
 ```
+
+### NPM Scripts
+
+- `pnpm browser:shell` - Start interactive shell (headless)
+- `pnpm browser:shell:headed` - Start interactive shell with visible browser
+- `pnpm browser:test` - Run automated tests
+- `pnpm browser:setup` - Download and setup Floorp binary
 
 ## License
 
