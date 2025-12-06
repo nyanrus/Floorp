@@ -8,8 +8,15 @@
   "author": "",
   "private": true,
   "license": "MPL-2.0",
+  "scripts": {
+    "browser:shell": "npx tsx tools/browser-automation/shell.ts",
+    "browser:shell:headed": "npx tsx tools/browser-automation/shell.ts --headed",
+    "browser:test": "npx tsx tools/browser-automation/run-tests.ts",
+    "browser:setup": "npx tsx tools/browser-automation/setup-floorp.ts"
+  },
   "devDependencies": {
     "@bytecodealliance/preview2-shim": "^0.17.3",
+    "@jsr/f3liz__foxr": "0.11.0",
     "@prettier/plugin-oxc": "^0.0.4",
     "@types/node": "^24.3.0",
     "@vitejs/plugin-react-swc": "^4.0.1",
@@ -22,6 +29,7 @@
     "pathe": "^2.0.3",
     "prettier": "^3.6.2",
     "puppeteer-core": "^24.17.1",
+    "tsx": "4.19.4",
     "typescript": "^5.9.2",
     "vite": "^7.1.4",
     "vite-plugin-solid": "^2.11.8"
