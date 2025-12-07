@@ -121,10 +121,10 @@ async function main() {
     console.log("🔘 Creating test button...");
     await automation.createTestButton("Click Me!", "demo-button");
 
-    // Take full window screenshot
+    // Take full window screenshot (use chrome helper)
     const screenshotPath = join(__dirname, "demo-screenshot.png");
     console.log("📸 Taking full window screenshot...");
-    const ssResult = await automation.screenshotFullWindow(screenshotPath);
+    const ssResult = await automation.chrome.screenshotFull(screenshotPath);
     console.log(`   Saved to: ${screenshotPath}\n`);
 
     // Test accessibility

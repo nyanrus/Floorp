@@ -166,7 +166,7 @@ class InteractiveShell {
             console.log("Usage: eval-chrome <script>");
             break;
           }
-          const evalChromeResult = await this.automation.evaluateChrome(args.join(" "));
+          const evalChromeResult = await this.automation.chrome.evaluate(args.join(" "));
           console.log(evalChromeResult.success ? `Result: ${JSON.stringify(evalChromeResult.value)}` : `❌ ${evalChromeResult.error}`);
           break;
 
@@ -184,7 +184,7 @@ class InteractiveShell {
             console.log("Usage: find-chrome <selector>");
             break;
           }
-          const chromeElement = await this.automation.findChromeElement(args[0]);
+          const chromeElement = await this.automation.chrome.find(args[0]);
           if (chromeElement.success) {
             console.log(`✅ Chrome element: ${JSON.stringify(chromeElement.value, null, 2)}`);
           } else {
@@ -220,21 +220,21 @@ class InteractiveShell {
           break;
 
         case "datetime":
-          const dtResult = await this.automation.createDateTimeOverlay();
-          console.log(dtResult.success 
-            ? `✅ DateTime overlay created. Time: ${dtResult.displayedTime}` 
+          const dtResult = await this.automation.chrome.createDateTimeOverlay();
+          console.log(dtResult.success
+            ? `✅ DateTime overlay created. Time: ${dtResult.displayedTime}`
             : `❌ ${dtResult.error}`);
           break;
 
         case "verify-datetime":
-          const verifyResult = await this.automation.verifyDateTimeOverlay();
+          const verifyResult = await this.automation.chrome.verifyDateTimeOverlay();
           console.log(verifyResult.success && verifyResult.overlayVisible
             ? `✅ DateTime overlay verified. Time: ${verifyResult.displayedTime}`
             : `❌ DateTime overlay not visible or ${verifyResult.error}`);
           break;
 
         case "remove-datetime":
-          const removeResult = await this.automation.removeDateTimeOverlay();
+          const removeResult = await this.automation.chrome.removeDateTimeOverlay();
           console.log(removeResult.success ? "✅ DateTime overlay removed" : `❌ ${removeResult.error}`);
           break;
 
@@ -243,9 +243,9 @@ class InteractiveShell {
             console.log("Usage: button <label> [id]");
             break;
           }
-          const buttonResult = await this.automation.createTestButton(args[0], args[1]);
-          console.log(buttonResult.success 
-            ? `✅ Button created: ${JSON.stringify(buttonResult.value)}` 
+          const buttonResult = await this.automation.chrome.createTestButton(args[0], args[1]);
+          console.log(buttonResult.success
+            ? `✅ Button created: ${JSON.stringify(buttonResult.value)}`
             : `❌ ${buttonResult.error}`);
           break;
 
@@ -254,9 +254,9 @@ class InteractiveShell {
             console.log("Usage: test-button <selector>");
             break;
           }
-          const testBtnResult = await this.automation.testButton(args[0]);
-          console.log(testBtnResult.success 
-            ? `✅ Button test: ${JSON.stringify(testBtnResult.value)}` 
+          const testBtnResult = await this.automation.chrome.testButton(args[0]);
+          console.log(testBtnResult.success
+            ? `✅ Button test: ${JSON.stringify(testBtnResult.value)}`
             : `❌ ${testBtnResult.error}`);
           break;
 
@@ -265,7 +265,7 @@ class InteractiveShell {
             console.log("Usage: accessibility <selector>");
             break;
           }
-          const a11yResult = await this.automation.testAccessibility(args[0]);
+          const a11yResult = await this.automation.chrome.testAccessibility(args[0]);
           if (a11yResult.success) {
             console.log(`Element: ${JSON.stringify(a11yResult.element, null, 2)}`);
             console.log(a11yResult.passed ? "✅ Accessibility test PASSED" : "❌ Accessibility test FAILED");
@@ -305,7 +305,7 @@ class InteractiveShell {
           }
           const ssChromeSelector = args[0];
           const ssChromePath = args[1] || `screenshot-chrome-${Date.now()}.png`;
-          const ssChromeResult = await this.automation.screenshotChromeElement(ssChromeSelector, ssChromePath);
+          const ssChromeResult = await this.automation.chrome.screenshotElement(ssChromeSelector, ssChromePath);
           console.log(ssChromeResult.success ? `✅ Chrome element screenshot saved: ${ssChromePath}` : `❌ ${ssChromeResult.error}`);
           break;
 

@@ -92,7 +92,7 @@ class TestRunner {
 
       // Test 1: DateTime Overlay
       await this.test("Create datetime overlay", async () => {
-        const result = await this.automation.createDateTimeOverlay();
+        const result = await this.automation.chrome.createDateTimeOverlay();
         if (!result.success) throw new Error(result.error);
         if (!result.overlayVisible) throw new Error("Overlay not visible");
         if (!result.displayedTime) throw new Error("No time displayed");
@@ -104,7 +104,7 @@ class TestRunner {
         // Wait a moment for the overlay to update
         await new Promise((resolve) => setTimeout(resolve, 1100));
         
-        const result = await this.automation.verifyDateTimeOverlay();
+        const result = await this.automation.chrome.verifyDateTimeOverlay();
         if (!result.success) throw new Error(result.error);
         if (!result.overlayVisible) throw new Error("Overlay not visible");
         
@@ -117,7 +117,7 @@ class TestRunner {
 
       // Test 3: Accessibility test for datetime overlay
       await this.test("DateTime overlay accessibility (aria-label)", async () => {
-        const result = await this.automation.testAccessibility("#floorp-datetime-overlay");
+        const result = await this.automation.chrome.testAccessibility("#floorp-datetime-overlay");
         if (!result.success) throw new Error(result.error);
         if (!result.passed) throw new Error("Accessibility test failed");
         
@@ -127,13 +127,13 @@ class TestRunner {
 
       // Test 4: Create test button with aria-label
       await this.test("Create test button with aria-label", async () => {
-        const result = await this.automation.createTestButton("Test Action Button", "action-button");
+        const result = await this.automation.chrome.createTestButton("Test Action Button", "action-button");
         if (!result.success) throw new Error(result.error);
       });
 
       // Test 5: Accessibility test for the created button
       await this.test("Test button accessibility", async () => {
-        const result = await this.automation.testAccessibility("#action-button");
+        const result = await this.automation.chrome.testAccessibility("#action-button");
         if (!result.success) throw new Error(result.error);
         if (!result.passed) throw new Error("Button accessibility test failed");
         
@@ -148,7 +148,7 @@ class TestRunner {
 
       // Test 6: Test button click functionality
       await this.test("Test button click functionality", async () => {
-        const result = await this.automation.testButton("#action-button");
+        const result = await this.automation.chrome.testButton("#action-button");
         if (!result.success) throw new Error(result.error);
         
         const value = result.value as { clicked: boolean; selector: string };
@@ -159,7 +159,7 @@ class TestRunner {
 
       // Test 7: Test existing button accessibility
       await this.test("Test existing button accessibility", async () => {
-        const result = await this.automation.testAccessibility("#existing-button");
+        const result = await this.automation.chrome.testAccessibility("#existing-button");
         if (!result.success) throw new Error(result.error);
         if (!result.passed) throw new Error("Existing button accessibility test failed");
         
@@ -196,7 +196,7 @@ class TestRunner {
       // Test 10: Take full window screenshot (chrome context)
       const fullWindowScreenshotPath = join(__dirname, "test-fullwindow-screenshot.png");
       await this.test("Take full window screenshot (chrome context)", async () => {
-        const result = await this.automation.screenshotFullWindow(fullWindowScreenshotPath);
+        const result = await this.automation.chrome.screenshotFull(fullWindowScreenshotPath);
         if (!result.success) throw new Error(result.error);
         if (!existsSync(fullWindowScreenshotPath)) throw new Error("Full window screenshot file not created");
         
@@ -211,7 +211,7 @@ class TestRunner {
 
       // Test 11: Evaluate in chrome context
       await this.test("Evaluate JavaScript in chrome context", async () => {
-        const result = await this.automation.evaluateChrome(`
+        const result = await this.automation.chrome.evaluate(`
           (function() {
             // Get browser window title or some chrome element
             var win = Services.wm.getMostRecentWindow("navigator:browser");
@@ -228,11 +228,11 @@ class TestRunner {
 
       // Test 12: Remove datetime overlay
       await this.test("Remove datetime overlay", async () => {
-        const result = await this.automation.removeDateTimeOverlay();
+        const result = await this.automation.chrome.removeDateTimeOverlay();
         if (!result.success) throw new Error(result.error);
         
         // Verify it's removed
-        const verifyResult = await this.automation.verifyDateTimeOverlay();
+        const verifyResult = await this.automation.chrome.verifyDateTimeOverlay();
         if (verifyResult.overlayVisible) throw new Error("Overlay was not removed");
       });
 
