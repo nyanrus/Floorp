@@ -22,6 +22,20 @@ const Context = {
 };
 
 /**
+ * Escape a string for safe use in JavaScript string literals.
+ * This escapes backslashes, single quotes, and other special characters.
+ */
+function escapeJsString(str) {
+  return str
+    .replace(/\\/g, '\\\\')  // Escape backslashes first
+    .replace(/'/g, "\\'")     // Escape single quotes
+    .replace(/"/g, '\\"')     // Escape double quotes
+    .replace(/\n/g, '\\n')    // Escape newlines
+    .replace(/\r/g, '\\r')    // Escape carriage returns
+    .replace(/\t/g, '\\t');   // Escape tabs
+}
+
+/**
  * BrowserChromeHelper - Helpers for testing in browser-chrome context.
  *
  * This class wraps foxr to provide convenient methods for:
@@ -54,7 +68,9 @@ export class BrowserChromeHelper extends EventEmitter {
     console.log(`Connecting to browser at ${host}:${port}...`);
 
     this._browser = await this._foxr.connect({ host, port });
-    // Get the send function from the browser's internal state
+    // Note: We access _send directly because foxr doesn't expose the raw Marionette
+    // send method publicly. This is necessary for chrome context operations.
+    // If foxr changes its internals, this may need to be updated.
     this._send = this._browser._send;
 
     console.log('Connected to browser.');
@@ -85,6 +101,7 @@ export class BrowserChromeHelper extends EventEmitter {
       args,
       dumpio: true
     });
+    // Note: See comment in connect() about _send access
     this._send = this._browser._send;
 
     console.log('Browser launched.');
@@ -211,7 +228,7 @@ export class BrowserChromeHelper extends EventEmitter {
     await this.switchToChromeContext();
 
     const result = await this.executeScript(`
-      const el = document.querySelector('${selector.replace(/'/g, "\\'")}');
+      const el = document.querySelector('${escapeJsString(selector)}');
       if (!el) return null;
       return {
         tagName: el.tagName,
@@ -236,9 +253,9 @@ export class BrowserChromeHelper extends EventEmitter {
     await this.switchToChromeContext();
 
     const result = await this.executeScript(`
-      const el = document.querySelector('${selector.replace(/'/g, "\\'")}');
+      const el = document.querySelector('${escapeJsString(selector)}');
       if (!el) {
-        return { error: 'Element not found', selector: '${selector}' };
+        return { error: 'Element not found', selector: '${escapeJsString(selector)}' };
       }
 
       return {
@@ -270,7 +287,7 @@ export class BrowserChromeHelper extends EventEmitter {
     await this.switchToChromeContext();
 
     const result = await this.executeScript(`
-      const el = document.querySelector('${selector.replace(/'/g, "\\'")}');
+      const el = document.querySelector('${escapeJsString(selector)}');
       if (!el) {
         return { success: false, error: 'Element not found' };
       }
@@ -298,11 +315,11 @@ export class BrowserChromeHelper extends EventEmitter {
     await this.switchToChromeContext();
 
     await this.executeScript(`
-      const parent = document.querySelector('${parentSelector.replace(/'/g, "\\'")}');
+      const parent = document.querySelector('${escapeJsString(parentSelector)}');
       if (!parent) {
-        throw new Error('Parent element not found: ${parentSelector}');
+        throw new Error('Parent element not found: ${escapeJsString(parentSelector)}');
       }
-      parent.insertAdjacentHTML('${position}', \`${html.replace(/`/g, '\\`')}\`);
+      parent.insertAdjacentHTML('${escapeJsString(position)}', \`${html.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$/g, '\\$')}\`);
     `);
   }
 
@@ -316,7 +333,7 @@ export class BrowserChromeHelper extends EventEmitter {
     await this.switchToChromeContext();
 
     const result = await this.executeScript(`
-      const el = document.querySelector('${selector.replace(/'/g, "\\'")}');
+      const el = document.querySelector('${escapeJsString(selector)}');
       if (el) {
         el.remove();
         return true;

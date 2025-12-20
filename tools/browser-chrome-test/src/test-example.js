@@ -150,8 +150,6 @@ async function main() {
       }),
 
       test('Add button with aria-label and test click', async () => {
-        let clickCount = 0;
-
         // Create a test button with proper aria-label
         const buttonHTML = `
           <button id="test-aria-button"
