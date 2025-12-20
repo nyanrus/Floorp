@@ -8,7 +8,7 @@
  * Maintainers: Run this script before running tests.
  */
 
-import { createWriteStream, mkdirSync, existsSync, unlinkSync, chmodSync } from 'node:fs';
+import { mkdirSync, existsSync, unlinkSync, chmodSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execSync } from 'node:child_process';
