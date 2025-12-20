@@ -1,0 +1,14 @@
+# Downloaded binaries
+/bin/
+
+# Screenshots output
+/screenshots/
+
+# Node modules
+/node_modules/
+
+# npm lock file (use pnpm at repository root)
+package-lock.json
+
+# npm debug logs
+npm-debug.log*

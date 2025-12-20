@@ -1,0 +1,19 @@
+{
+  "name": "@floorp/browser-chrome-test",
+  "version": "0.1.0",
+  "description": "Browser-chrome context testing helpers for Floorp using Marionette protocol",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "download-binary": "node scripts/download-binary.js",
+    "test": "node src/test-example.js"
+  },
+  "keywords": ["floorp", "testing", "marionette", "browser-chrome"],
+  "license": "MPL-2.0",
+  "dependencies": {
+    "@jsr/f3liz__foxr": "0.11.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
