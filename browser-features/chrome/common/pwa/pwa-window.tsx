@@ -10,9 +10,6 @@ import { config } from "./config.ts";
 import PwaWindowStyle from "./pwa-window-style.css?inline";
 import type { PwaService } from "./pwaService.ts";
 import type { FloorpChromeWindow } from "./type.ts";
-const { PWA_WINDOW_NAME } = ChromeUtils.importESModule(
-  "resource://noraneko/modules/pwa/SsbCommandLineHandler.sys.mjs",
-);
 
 export class PwaWindowSupport {
   private ssbId = createSignal<string | null>(null);
@@ -23,7 +20,12 @@ export class PwaWindowSupport {
   }
 
   constructor(private pwaService: PwaService) {
-    if (!window.name.startsWith(PWA_WINDOW_NAME)) {
+    // Check if this is a PWA window using documentElement attribute
+    // Note: We use "taskbartab" instead of "ssbid" because browser-init.js
+    // only sets taskbartab attribute from extraOptions. PWA windows set both
+    // with the same ID value in SsbCommandLineHandler.
+    const ssbIdAttr = document?.documentElement?.getAttribute("taskbartab");
+    if (!ssbIdAttr) {
       return;
     }
 
@@ -40,8 +42,6 @@ export class PwaWindowSupport {
   }
 
   private initializeWindow(): void {
-    const mainWindow = document?.getElementById("main-window");
-    mainWindow?.setAttribute("windowtype", "navigator:ssb-window");
     window.floorpSsbWindow = true;
     this.configureTitlebarBehavior();
     this.updateToolbarVisibility(this.shouldShowToolbar());
@@ -49,7 +49,10 @@ export class PwaWindowSupport {
 
   private setupSignals(): void {
     const [, setSsbId] = this.ssbId;
-    setSsbId(self.name);
+    // Read SSB ID from documentElement attribute (using taskbartab as set by browser-init.js)
+    const ssbIdAttr = document?.documentElement?.getAttribute("taskbartab") ??
+      null;
+    setSsbId(ssbIdAttr);
   }
 
   private setupPageActions(): void {

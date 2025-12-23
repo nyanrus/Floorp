@@ -9,50 +9,68 @@ const { AppConstants } = ChromeUtils.importESModule(
   "resource://gre/modules/AppConstants.sys.mjs",
 );
 
-const { SessionStore } = ChromeUtils.importESModule(
-  "resource:///modules/sessionstore/SessionStore.sys.mjs",
+const { BrowserWindowTracker } = ChromeUtils.importESModule(
+  "resource:///modules/BrowserWindowTracker.sys.mjs",
 );
 const { TaskbarExperiment } = ChromeUtils.importESModule(
   "resource://noraneko/modules/pwa/TaskbarExperiment.sys.mjs",
 );
 
 export const PWA_WINDOW_NAME = "FloorpPWAWindow";
-const SSB_WINDOW_FEATURES =
-  "chrome,location=yes,centerscreen,dialog=no,resizable=yes,scrollbars=yes";
+
+/**
+ * Get window features based on PWA display mode.
+ * Note: toolbar/titlebar visibility is handled by CSS in pwa-window.tsx
+ * based on the showToolbar config setting.
+ */
+function getWindowFeatures(displayMode?: string): string {
+  // All display modes now include toolbar for consistent PWA window behavior
+  switch (displayMode) {
+    case "fullscreen":
+    case "standalone":
+    case "minimal-ui":
+    case "browser":
+    default:
+      return "chrome,titlebar,close,toolbar,location,personalbar=no,menubar=no,resizable,minimizable,centerscreen";
+  }
+}
 
 type TQueryInterface = <T extends nsIID>(aIID: T) => nsQIResult<T>;
 
 export class SsbRunnerUtils {
   static async openSsbWindow(ssb: Manifest, initialLaunch: boolean = false) {
-    let initialLaunchWin: nsIDOMWindow | null = null;
+    // Use LastWindowClosingSurvivalArea to avoid showing empty window
     if (initialLaunch) {
-      initialLaunchWin = Services.ww.openWindow(
-        null as unknown as mozIDOMWindowProxy,
-        AppConstants.BROWSER_CHROME_URL,
-        "_blank",
-        "",
-        {},
-      ) as nsIDOMWindow;
+      Services.startup.enterLastWindowClosingSurvivalArea();
     }
 
-    const args = this.createWindowArgs(ssb.start_url);
-    const uniqueWindowName = this.generateWindowName(ssb.id);
+    try {
+      const args = this.createWindowArgs(ssb);
+      const windowFeatures = getWindowFeatures(ssb.display);
 
-    const win = Services.ww.openWindow(
-      null as unknown as mozIDOMWindowProxy,
-      AppConstants.BROWSER_CHROME_URL,
-      uniqueWindowName,
-      SSB_WINDOW_FEATURES,
-      args,
-    ) as nsIDOMWindow;
+      const win = await BrowserWindowTracker.promiseOpenWindow({
+        args,
+        features: windowFeatures,
+        all: false,
+      });
 
-    win.focus();
-    SessionStore.promiseAllWindowsRestored.then(() => {
-      initialLaunchWin?.close();
-    });
+      // Set displayMode on all tabs
+      const displayMode = ssb.display || "standalone";
+      // deno-lint-ignore no-explicit-any
+      win.gBrowser?.tabs.forEach((tab: any) => {
+        const browser = win.gBrowser.getBrowserForTab(tab);
+        if (browser?.browsingContext) {
+          browser.browsingContext.displayMode = displayMode;
+        }
+      });
 
-    await this.waitForWindowLoaded(win);
-    return win;
+      win.focus();
+      return win;
+    } finally {
+      if (initialLaunch) {
+        Services.startup.exitLastWindowClosingSurvivalArea();
+      }
+    }
   }
 
   static async applyOSIntegration(ssb: Manifest, win: Window) {
@@ -83,26 +101,28 @@ export class SsbRunnerUtils {
     }
   }
 
-  private static createWindowArgs(startUrl: string) {
-    const args = Cc["@mozilla.org/supports-string;1"].createInstance(
+  private static createWindowArgs(ssb: Manifest) {
+    // Create extraOptions to set document.documentElement attributes
+    const extraOptions = Cc["@mozilla.org/hash-property-bag;1"].createInstance(
+      Ci.nsIWritablePropertyBag2,
+    );
+    extraOptions.setPropertyAsAString("ssbid", ssb.id);
+    // Set taskbartab attribute to leverage SessionStore's existing handling
+    // This excludes PWA windows from session restore and treats them like TaskBarTabs
+    extraOptions.setPropertyAsAString("taskbartab", ssb.id);
+
+    // Create URL argument
+    const url = Cc["@mozilla.org/supports-string;1"].createInstance(
       Ci.nsISupportsString,
     );
-    args.data = startUrl;
+    url.data = ssb.start_url;
+
+    // Build args array
+    const args = Cc["@mozilla.org/array;1"].createInstance(Ci.nsIMutableArray);
+    args.appendElement(url);
+    args.appendElement(extraOptions);
+
     return args;
-  }
-
-  private static generateWindowName(id: string) {
-    return `${PWA_WINDOW_NAME}_${id}_${Date.now()}`;
-  }
-
-  private static async waitForWindowLoaded(win: Window) {
-    if (win.document && win.document.readyState === "complete") {
-      return;
-    }
-
-    await new Promise<void>((resolve) => {
-      win.addEventListener("load", () => resolve(), { once: true });
-    });
   }
 
   static async getSsbById(id: string): Promise<Manifest | null> {
@@ -151,31 +171,13 @@ export class SSBCommandLineHandler {
   handle(cmdLine: nsICommandLine) {
     const id = cmdLine.handleFlagWithParam("start-ssb", false);
     if (id) {
-      // If there is no Floorp browser window open, do not launch the PWA now.
-      // Instead, persist the requested SSB id to a preference so the regular
-      // Floorp startup can handle launching it later. This avoids requiring
-      // the user to click the taskbar shortcut twice.
-      const hasBrowserWindow =
-        !!Services.wm.getMostRecentWindow("navigator:browser");
+      // Prevent default browser window from opening - PWA should launch standalone
+      cmdLine.preventDefault = true;
 
-      if (!hasBrowserWindow) {
-        try {
-          Services.prefs.setCharPref("floorp.ssb.startup.id", id);
-        } catch (e) {
-          // If pref set fails for some reason, log and continue without
-          // preventing default startup so the application still launches.
-          console.error("Failed to set floorp.ssb.startup.id", e);
-        }
-
-        // Let normal startup continue (do not preventDefault). The PWA will
-        // not be started now.
-        return;
-      }
-
-      // If a browser window already exists, start the SSB immediately.
+      // Start SSB directly (works even without existing browser window)
+      // The startSSBFromCmdLine function handles LastWindowClosingSurvivalArea
       startSSBFromCmdLine(id, !this.isInitialized);
       this.isInitialized = true;
-      cmdLine.preventDefault = true;
     }
   }
 
