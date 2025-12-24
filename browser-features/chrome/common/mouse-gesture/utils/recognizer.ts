@@ -41,7 +41,7 @@ const DIRECTION_VECTORS: Record<GestureDirection, { dx: number; dy: number }> = 
  * Create a $1 Recognizer Point object.
  */
 function createPoint(x: number, y: number): DollarPoint {
-  return (Point as unknown as new (x: number, y: number) => DollarPoint)(x, y);
+  return new (Point as unknown as new (x: number, y: number) => DollarPoint)(x, y);
 }
 
 /**
@@ -98,7 +98,7 @@ export function convertTrailToPoints(
  */
 export function createRecognizer(actions: GestureAction[]): IDollarRecognizer {
   // Create a new $1 Recognizer instance
-  const recognizer = (DollarRecognizer as unknown as new () => IDollarRecognizer)();
+  const recognizer = new (DollarRecognizer as unknown as new () => IDollarRecognizer)();
 
   // Clear the built-in gesture templates
   recognizer.DeleteUserGestures();
