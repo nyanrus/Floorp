@@ -38,52 +38,31 @@ const DIRECTION_VECTORS: Record<GestureDirection, { dx: number; dy: number }> = 
 };
 
 /**
- * Mapping of each direction to its 180-degree opposite.
- * The $1 recognizer normalizes gestures by rotating them to a canonical orientation,
- * so opposite gestures (like "left" and "right") produce the same shape signature.
+ * Shape variant entry containing pattern name and its first direction angle.
+ * Used to store multiple patterns that share the same shape signature.
  */
-const OPPOSITE_DIRECTION: Record<GestureDirection, GestureDirection> = {
-  right: "left",
-  left: "right",
-  up: "down",
-  down: "up",
-  upRight: "downLeft",
-  downLeft: "upRight",
-  upLeft: "downRight",
-  downRight: "upLeft",
-};
+interface ShapeVariant {
+  patternName: string;
+  pattern: GestureDirection[];
+  firstAngle: number | null;
+}
 
 /**
- * Check if two patterns have the same shape signature when normalized by $1.
- * Two patterns have the same shape if one is the 180-degree rotation of the other.
- * This is because $1 normalizes gestures by rotating them, making opposite gestures identical.
- *
- * Examples of patterns with the same shape:
- * - ["right"] and ["left"]
- * - ["up", "right"] and ["down", "left"]
- * - ["upRight"] and ["downLeft"]
+ * Shape database entry containing the representative shape key and its variants.
+ * The shape key is the pattern name used to register with $1 recognizer.
+ * Variants are all patterns that share this shape signature.
  */
-function hasSameShapeSignature(
-  pattern1: GestureDirection[],
-  pattern2: GestureDirection[],
-): boolean {
-  // Patterns must have the same length
-  if (pattern1.length !== pattern2.length) {
-    return false;
-  }
-
-  // Check if pattern2 is the same as pattern1
-  const isSame = pattern1.every((dir, i) => dir === pattern2[i]);
-  if (isSame) {
-    return true;
-  }
-
-  // Check if pattern2 is the 180-degree rotation of pattern1
-  const isOpposite = pattern1.every(
-    (dir, i) => OPPOSITE_DIRECTION[dir] === pattern2[i],
-  );
-  return isOpposite;
+export interface ShapeEntry {
+  shapeKey: string;
+  variants: ShapeVariant[];
 }
+
+/**
+ * Shape database that maps shape keys to their entries.
+ * This allows registering only unique shapes to $1 while tracking
+ * all direction variants for each shape.
+ */
+export type ShapeDatabase = Map<string, ShapeEntry>;
 
 /**
  * Create a $1 Recognizer Point object.
@@ -149,49 +128,6 @@ export function convertTrailToPoints(
 const SEGMENT_LENGTHS = [50, 100, 200, 400, 800];
 
 /**
- * Create a $1 Recognizer instance configured with gesture patterns.
- *
- * Takes the gesture actions from configuration and adds them as templates
- * to the recognizer. Each pattern is converted from directions to points
- * at multiple sizes to improve recognition accuracy across different
- * gesture scales.
- */
-export function createRecognizer(actions: GestureAction[]): IDollarRecognizer {
-  // Create a new $1 Recognizer instance
-  const recognizer = new (DollarRecognizer as unknown as new () => IDollarRecognizer)();
-
-  // Clear the built-in gesture templates
-  recognizer.DeleteUserGestures();
-  recognizer.Unistrokes.length = 0;
-
-  // Add each configured gesture as a template at multiple sizes
-  for (const action of actions) {
-    if (action.pattern.length > 0) {
-      // Use the pattern as a hyphen-joined string for the template name
-      const templateName = action.pattern.join("-");
-
-      // Add templates at multiple sizes for better recognition
-      // The $1 Recognizer normalizes gestures, but having multiple
-      // sizes can help with edge cases and improve accuracy
-      for (const segmentLength of SEGMENT_LENGTHS) {
-        const points = convertPatternToPoints(action.pattern, segmentLength);
-        recognizer.AddGesture(templateName, points);
-      }
-    }
-  }
-
-  return recognizer;
-}
-
-/**
- * Result of a gesture recognition attempt.
- */
-export interface RecognitionResult {
-  patternName: string;
-  score: number;
-}
-
-/**
  * Calculate the angle of the first direction in a pattern using arctan.
  * Returns the angle in radians, where 0 = right, PI/2 = down, ±PI = left, -PI/2 = up.
  * This helps distinguish opposite gestures like "up-down" vs "down-up" by
@@ -208,6 +144,107 @@ function getPatternFirstAngle(pattern: GestureDirection[]): number | null {
 
   // Use atan2 to get the angle (dy, dx order for screen coordinates where Y increases downward)
   return Math.atan2(vector.dy, vector.dx);
+}
+
+/**
+ * Result of creating a recognizer, including the shape database.
+ */
+export interface RecognizerWithShapeDb {
+  recognizer: IDollarRecognizer;
+  shapeDb: ShapeDatabase;
+}
+
+/**
+ * Create a $1 Recognizer instance configured with gesture patterns.
+ *
+ * Takes the gesture actions from configuration and adds them as templates
+ * to the recognizer. Only unique shapes are registered to $1; patterns that
+ * produce the same shape signature are stored as variants in the shape database.
+ *
+ * The first pattern encountered for each unique shape becomes the representative
+ * template. Subsequent patterns with the same shape are added as variants,
+ * distinguished by their first direction angle.
+ */
+export function createRecognizer(actions: GestureAction[]): RecognizerWithShapeDb {
+  // Create a new $1 Recognizer instance
+  const recognizer = new (DollarRecognizer as unknown as new () => IDollarRecognizer)();
+
+  // Clear the built-in gesture templates
+  recognizer.DeleteUserGestures();
+  recognizer.Unistrokes.length = 0;
+
+  // Build shape database - maps shape keys to their variants
+  const shapeDb: ShapeDatabase = new Map();
+
+  // Track which shapes have been registered to avoid duplicates
+  const registeredShapes = new Set<string>();
+
+  // Add each configured gesture as a template
+  for (const action of actions) {
+    if (action.pattern.length > 0) {
+      // Use the pattern as a hyphen-joined string for the template name
+      const patternName = action.pattern.join("-");
+      const firstAngle = getPatternFirstAngle(action.pattern);
+
+      // Create the shape variant entry
+      const variant: ShapeVariant = {
+        patternName,
+        pattern: action.pattern,
+        firstAngle,
+      };
+
+      // Check if this exact pattern name is already registered as a shape key
+      if (shapeDb.has(patternName)) {
+        // This pattern is already the representative for its shape, add as variant
+        shapeDb.get(patternName)!.variants.push(variant);
+      } else {
+        // Check if we should add to an existing shape entry
+        // by checking if any existing shape key matches this pattern
+        let foundExistingShape = false;
+        for (const [shapeKey, entry] of shapeDb) {
+          // If the recognizer returns this shapeKey when given the pattern's points,
+          // they share the same shape signature
+          const testPoints = convertPatternToPoints(action.pattern, 100);
+          const testResult = recognizer.Recognize(testPoints, true);
+          if (testResult.Name === shapeKey && testResult.Score > 0.95) {
+            // Same shape - add as variant
+            entry.variants.push(variant);
+            foundExistingShape = true;
+            break;
+          }
+        }
+
+        if (!foundExistingShape) {
+          // New unique shape - register to $1 and create new entry
+          shapeDb.set(patternName, {
+            shapeKey: patternName,
+            variants: [variant],
+          });
+
+          // Only register if not already registered
+          if (!registeredShapes.has(patternName)) {
+            registeredShapes.add(patternName);
+
+            // Add templates at multiple sizes for better recognition
+            for (const segmentLength of SEGMENT_LENGTHS) {
+              const points = convertPatternToPoints(action.pattern, segmentLength);
+              recognizer.AddGesture(patternName, points);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  return { recognizer, shapeDb };
+}
+
+/**
+ * Result of a gesture recognition attempt.
+ */
+export interface RecognitionResult {
+  patternName: string;
+  score: number;
 }
 
 /**
@@ -287,39 +324,16 @@ function angleDifference(angle1: number, angle2: number): number {
 }
 
 /**
- * Validate that the trail's first movement direction matches the pattern's first direction.
- * Uses arctan-based angle comparison to distinguish opposite gestures like
- * "up-down" vs "down-up" and "upRight" vs "downLeft".
- */
-function validateDirection(
-  pattern: GestureDirection[],
-  trail: { x: number; y: number }[],
-): boolean {
-  const expectedAngle = getPatternFirstAngle(pattern);
-  const actualAngle = getTrailFirstAngle(trail);
-
-  // If either angle couldn't be determined, allow it to pass
-  if (expectedAngle === null || actualAngle === null) {
-    return true;
-  }
-
-  // Compare angles - they should be within 90 degrees of each other
-  const diff = angleDifference(expectedAngle, actualAngle);
-  return diff <= MAX_ANGLE_DIFFERENCE;
-}
-
-/**
- * Recognize a gesture from mouse trail points.
+ * Recognize a gesture from mouse trail points using the shape database.
  *
- * Uses the $1 Recognizer's Protractor algorithm for fast matching.
+ * Uses the $1 Recognizer's Protractor algorithm for fast shape matching.
  * Since $1 normalizes gestures by rotation, opposite gestures (like "left" vs "right"
  * or ["up", "right"] vs ["down", "left"]) produce the same shape signature.
  *
  * To distinguish between these, we:
- * 1. Get the shape match from $1 recognizer
- * 2. Validate the first movement direction using arctan
- * 3. If direction doesn't match, look for patterns with the same shape signature
- *    but matching first direction
+ * 1. Get the shape match from $1 recognizer (returns the shape key)
+ * 2. Look up all variants for that shape in the shape database
+ * 3. Find the first variant whose first direction matches the trail's first direction
  *
  * Returns the matched pattern name and confidence score if successful.
  */
@@ -327,7 +341,7 @@ export function recognize(
   recognizer: IDollarRecognizer,
   trail: { x: number; y: number }[],
   minScore = 0.7,
-  actions?: GestureAction[],
+  shapeDb?: ShapeDatabase,
 ): RecognitionResult | null {
   // Need at least 2 points to recognize
   if (trail.length < 2) {
@@ -342,39 +356,43 @@ export function recognize(
 
   // Check if we got a valid match above the threshold
   if (result.Name !== "No match." && result.Score >= minScore) {
-    // Parse the pattern from the result name (format: "up-right-down")
-    const patternDirs = result.Name.split("-") as GestureDirection[];
+    // The result.Name is the shape key used to register with $1
+    const shapeKey = result.Name;
 
-    // Validate first movement direction using arctan-based comparison
-    // This distinguishes opposite gestures like "up-down" vs "down-up"
-    if (!validateDirection(patternDirs, trail)) {
-      // Direction doesn't match - try to find another pattern with the same shape
-      // but with a matching first direction
-      if (actions) {
-        // Look for another action with the same shape signature and matching direction
-        for (const action of actions) {
-          const actionPatternName = action.pattern.join("-");
-          // Skip the already-matched pattern
-          if (actionPatternName === result.Name) {
-            continue;
-          }
-          // Only consider patterns with the same shape signature (e.g., "left" matches "right")
-          // and verify that the first direction matches the user's actual gesture
-          if (
-            hasSameShapeSignature(patternDirs, action.pattern) &&
-            validateDirection(action.pattern, trail)
-          ) {
-            // Found a pattern with matching shape and direction - return it with the original score
+    // If we have a shape database, look up variants and match by direction
+    if (shapeDb) {
+      const shapeEntry = shapeDb.get(shapeKey);
+      if (shapeEntry) {
+        // Get the trail's first direction angle
+        const trailAngle = getTrailFirstAngle(trail);
+
+        // Find the first variant that matches the trail's direction
+        for (const variant of shapeEntry.variants) {
+          // If either angle couldn't be determined, use this variant
+          if (trailAngle === null || variant.firstAngle === null) {
             return {
-              patternName: actionPatternName,
+              patternName: variant.patternName,
+              score: result.Score,
+            };
+          }
+
+          // Compare angles - they should be within 90 degrees of each other
+          const diff = angleDifference(variant.firstAngle, trailAngle);
+          if (diff <= MAX_ANGLE_DIFFERENCE) {
+            return {
+              patternName: variant.patternName,
               score: result.Score,
             };
           }
         }
+
+        // No variant matched the direction
+        return null;
       }
-      return null;
     }
 
+    // Fallback: if no shape database, just return the shape key as the pattern name
+    // (for backward compatibility during transition)
     return {
       patternName: result.Name,
       score: result.Score,
