@@ -445,12 +445,25 @@ function getMaxDisplacementDirection(
 /**
  * Check if a pattern exists in the shape database.
  * Returns true if pattern is found or if no shapeDb is provided.
+ * Searches both top-level keys and variants within each shape entry.
  */
 function isPatternConfigured(patternName: string, shapeDb?: ShapeDatabase): boolean {
   if (!shapeDb) {
     return true;
   }
-  return shapeDb.has(patternName);
+  // Check if pattern is a top-level key
+  if (shapeDb.has(patternName)) {
+    return true;
+  }
+  // Search through all variants in each shape entry
+  for (const shapeEntry of shapeDb.values()) {
+    for (const variant of shapeEntry.variants) {
+      if (variant.patternName === patternName) {
+        return true;
+      }
+    }
+  }
+  return false;
 }
 
 /**
