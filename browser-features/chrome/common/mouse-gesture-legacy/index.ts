@@ -5,7 +5,6 @@
 
 import { noraComponent, NoraComponentBase } from "#features-chrome/utils/base";
 import { mouseGestureService } from "./service.ts";
-
 export { mouseGestureService } from "./service.ts";
 export type {
   GestureAction,
