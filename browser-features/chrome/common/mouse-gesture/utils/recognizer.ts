@@ -145,7 +145,7 @@ export interface RecognitionResult {
 
 /**
  * Calculate the angle of the first direction in a pattern using arctan.
- * Returns the angle in radians, where 0 = right, PI/2 = down, PI = left, -PI/2 = up.
+ * Returns the angle in radians, where 0 = right, PI/2 = down, ±PI = left, -PI/2 = up.
  * This helps distinguish opposite gestures like "up-down" vs "down-up" by
  * comparing first movement direction.
  */
@@ -169,6 +169,18 @@ function getPatternFirstAngle(pattern: GestureDirection[]): number | null {
 const MIN_MOVEMENT_DISTANCE = 15;
 
 /**
+ * Calculate the distance between two points.
+ */
+function distanceBetween(
+  p1: { x: number; y: number },
+  p2: { x: number; y: number },
+): number {
+  const dx = p2.x - p1.x;
+  const dy = p2.y - p1.y;
+  return Math.sqrt(dx * dx + dy * dy);
+}
+
+/**
  * Calculate the angle of the first significant movement from a mouse trail using arctan.
  * Finds the first point that is far enough from the start to determine direction.
  * Returns the angle in radians, or null if no significant movement is found.
@@ -182,11 +194,9 @@ function getTrailFirstAngle(trail: { x: number; y: number }[]): number | null {
 
   // Find the first point that is far enough to determine direction
   for (let i = 1; i < trail.length; i++) {
-    const dx = trail[i].x - start.x;
-    const dy = trail[i].y - start.y;
-    const distance = Math.sqrt(dx * dx + dy * dy);
-
-    if (distance >= MIN_MOVEMENT_DISTANCE) {
+    if (distanceBetween(start, trail[i]) >= MIN_MOVEMENT_DISTANCE) {
+      const dx = trail[i].x - start.x;
+      const dy = trail[i].y - start.y;
       // Use atan2 to get the angle (dy, dx order for screen coordinates)
       return Math.atan2(dy, dx);
     }
@@ -194,11 +204,9 @@ function getTrailFirstAngle(trail: { x: number; y: number }[]): number | null {
 
   // If no point is far enough, use the last point
   const last = trail[trail.length - 1];
-  const dx = last.x - start.x;
-  const dy = last.y - start.y;
-  const distance = Math.sqrt(dx * dx + dy * dy);
-
-  if (distance > 0) {
+  if (distanceBetween(start, last) > 0) {
+    const dx = last.x - start.x;
+    const dy = last.y - start.y;
     return Math.atan2(dy, dx);
   }
 
@@ -213,6 +221,11 @@ function getTrailFirstAngle(trail: { x: number; y: number }[]): number | null {
 const MAX_ANGLE_DIFFERENCE = Math.PI / 2;
 
 /**
+ * Full circle in radians, used for angle wraparound calculations.
+ */
+const TWO_PI = 2 * Math.PI;
+
+/**
  * Calculate the angular difference between two angles, accounting for wraparound.
  * Returns the smallest angle between the two directions (0 to PI).
  */
@@ -220,7 +233,7 @@ function angleDifference(angle1: number, angle2: number): number {
   let diff = Math.abs(angle1 - angle2);
   // Normalize to [0, PI] range since we want the smallest angle between directions
   if (diff > Math.PI) {
-    diff = 2 * Math.PI - diff;
+    diff = TWO_PI - diff;
   }
   return diff;
 }
