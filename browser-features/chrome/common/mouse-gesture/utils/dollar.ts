@@ -347,3 +347,6 @@ function Distance(p1, p2)
 	return Math.sqrt(dx * dx + dy * dy);
 }
 function Deg2Rad(d) { return (d * Math.PI / 180.0); }
+
+// Exports for ES modules
+export { Point, DollarRecognizer };
