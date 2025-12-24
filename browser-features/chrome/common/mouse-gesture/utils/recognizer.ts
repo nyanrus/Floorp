@@ -315,6 +315,12 @@ const TWO_PI = 2 * Math.PI;
 const OSCILLATION_RATIO = 3;
 
 /**
+ * Confidence score for gestures detected by geometric analysis.
+ * Set to 1.0 (maximum) since geometric detection is very reliable for simple patterns.
+ */
+const GEOMETRIC_DETECTION_CONFIDENCE = 1.0;
+
+/**
  * Result of oscillating line detection.
  */
 interface OscillationResult {
@@ -365,13 +371,7 @@ function getFirstMovementDirection(
     if (distanceBetween(start, trail[i]) >= MIN_MOVEMENT_DISTANCE) {
       const dx = trail[i].x - start.x;
       const dy = trail[i].y - start.y;
-
-      // Determine primary direction based on which axis has more movement
-      if (Math.abs(dy) > Math.abs(dx)) {
-        return dy < 0 ? "up" : "down";
-      } else {
-        return dx > 0 ? "right" : "left";
-      }
+      return deltaToDirection(dx, dy);
     }
   }
 
@@ -380,15 +380,22 @@ function getFirstMovementDirection(
   if (distanceBetween(start, last) > 0) {
     const dx = last.x - start.x;
     const dy = last.y - start.y;
-
-    if (Math.abs(dy) > Math.abs(dx)) {
-      return dy < 0 ? "up" : "down";
-    } else {
-      return dx > 0 ? "right" : "left";
-    }
+    return deltaToDirection(dx, dy);
   }
 
   return null;
+}
+
+/**
+ * Convert dx/dy deltas to a cardinal direction.
+ * Returns "up", "down", "left", or "right" based on which axis dominates.
+ */
+function deltaToDirection(dx: number, dy: number): "up" | "down" | "left" | "right" {
+  if (Math.abs(dy) > Math.abs(dx)) {
+    return dy < 0 ? "up" : "down";
+  } else {
+    return dx > 0 ? "right" : "left";
+  }
 }
 
 /**
@@ -432,11 +439,18 @@ function getMaxDisplacementDirection(
     return null;
   }
 
-  if (Math.abs(dx) > Math.abs(dy)) {
-    return dx > 0 ? "right" : "left";
-  } else {
-    return dy < 0 ? "up" : "down";
+  return deltaToDirection(dx, dy);
+}
+
+/**
+ * Check if a pattern exists in the shape database.
+ * Returns true if pattern is found or if no shapeDb is provided.
+ */
+function isPatternConfigured(patternName: string, shapeDb?: ShapeDatabase): boolean {
+  if (!shapeDb) {
+    return true;
   }
+  return shapeDb.has(patternName);
 }
 
 /**
@@ -488,15 +502,13 @@ export function recognize(
         patternName = firstDir === "left" ? "left-right" : "right-left";
       }
 
-      // Check if this pattern exists in the shape database
-      if (shapeDb && !shapeDb.has(patternName)) {
-        // Pattern not configured, fall through to $1 recognizer
-      } else {
+      if (isPatternConfigured(patternName, shapeDb)) {
         return {
           patternName,
-          score: 1.0, // High confidence for geometric detection
+          score: GEOMETRIC_DETECTION_CONFIDENCE,
         };
       }
+      // Pattern not configured, fall through to $1 recognizer
     }
   }
 
@@ -506,15 +518,13 @@ export function recognize(
     if (direction) {
       const patternName = direction;
 
-      // Check if this pattern exists in the shape database
-      if (shapeDb && !shapeDb.has(patternName)) {
-        // Pattern not configured, fall through to $1 recognizer
-      } else {
+      if (isPatternConfigured(patternName, shapeDb)) {
         return {
           patternName,
-          score: 1.0, // High confidence for geometric detection
+          score: GEOMETRIC_DETECTION_CONFIDENCE,
         };
       }
+      // Pattern not configured, fall through to $1 recognizer
     }
   }
 
