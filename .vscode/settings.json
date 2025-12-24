@@ -23,10 +23,11 @@
   },
   // AI アシスタント設定
   "github.copilot.enable": {
-    "*": true,
-    "yaml": true,
+    "*": false,
     "plaintext": false,
-    "markdown": true
+    "markdown": true,
+    "scminput": false,
+    "yaml": true
   },
   // Continue (AI コーディングアシスタント) 設定
   "continue.telemetryEnabled": false,

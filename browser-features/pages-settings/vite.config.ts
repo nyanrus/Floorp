@@ -1,9 +1,10 @@
 import { defineConfig } from "vite";
 import tailwindcss from "@tailwindcss/vite";
-import react from "@vitejs/plugin-react-swc";
+import react from "@vitejs/plugin-react";
 import tsconfigPaths from "vite-tsconfig-paths";
-import { genJarmnPlugin } from "@nora/vite-plugin-gen-jarmn";
-import { disableCspInDevPlugin } from "@nora/vite-plugin-disable-csp";
+import { genJarmnPlugin } from "../../libs/vite-plugin-gen-jarmn/plugin.ts";
+import { disableCspInDevPlugin } from "../../libs/vite-plugin-disable-csp/plugin.ts";
+import { barrel } from "vite-plugin-barrel"
 
 export default defineConfig(({ command }) => ({
   build: {

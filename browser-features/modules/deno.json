@@ -5,7 +5,7 @@
     "birpc": "npm:birpc@^2.3.0",
     "fflate": "npm:fflate@^0.8.2",
     "pathe": "npm:pathe@^2.0.3",
-    "vite": "npm:rolldown-vite@latest"
+    "vite": "npm:vite@8.0.0-beta.4"
   },
   "exports": {
     ".": "./*"

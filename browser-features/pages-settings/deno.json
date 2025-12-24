@@ -13,7 +13,10 @@
     ]
   },
   "imports": {
-    "@/": "./src/"
+    "@/": "./src/",
+    "@vitejs/plugin-react": "npm:@vitejs/plugin-react@^5.1.2",
+    "lucide-react": "npm:lucide-react@^0.562.0",
+    "vite": "npm:vite@7.3.0"
   },
   "rules": {
     "react/jsx-no-target-blank": "off"

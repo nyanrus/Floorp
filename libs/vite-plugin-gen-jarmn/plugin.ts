@@ -2,7 +2,16 @@
 
 import { generateJarManifest } from "./gen_jarmanifest.ts";
 import type { Plugin } from "rolldown";
-import fs from "node:fs";
+
+// Use Deno's filesystem API instead of Node's `fs`.
+async function pathExists(path: string): Promise<boolean> {
+  try {
+    await Deno.stat(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 export function genJarmnPlugin(
   prefix: string,
@@ -16,7 +25,7 @@ export function genJarmnPlugin(
       rootPath = config.root;
     },
     async generateBundle(options, bundle, isWrite) {
-      const _bundle = fs.existsSync(rootPath + "/index.html")
+      const _bundle = (await pathExists(rootPath + "/index.html"))
         ? Object.assign(
             { "__index.html__": { fileName: "index.html" } },
             bundle,
