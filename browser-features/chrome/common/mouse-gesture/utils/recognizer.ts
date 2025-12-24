@@ -91,10 +91,22 @@ export function convertTrailToPoints(
 }
 
 /**
+ * Segment lengths for generating multiple-size templates.
+ * The $1 Unistroke Recognizer works better with multiple templates
+ * at different scales to handle varying gesture sizes.
+ *
+ * These values represent small, medium, and large gesture sizes
+ * to accommodate different screen sizes and user gesture styles.
+ */
+const SEGMENT_LENGTHS = [50, 100, 200, 400, 800];
+
+/**
  * Create a $1 Recognizer instance configured with gesture patterns.
  *
  * Takes the gesture actions from configuration and adds them as templates
- * to the recognizer. Each pattern is converted from directions to points.
+ * to the recognizer. Each pattern is converted from directions to points
+ * at multiple sizes to improve recognition accuracy across different
+ * gesture scales.
  */
 export function createRecognizer(actions: GestureAction[]): IDollarRecognizer {
   // Create a new $1 Recognizer instance
@@ -104,17 +116,19 @@ export function createRecognizer(actions: GestureAction[]): IDollarRecognizer {
   recognizer.DeleteUserGestures();
   recognizer.Unistrokes.length = 0;
 
-  // Add each configured gesture as a template
+  // Add each configured gesture as a template at multiple sizes
   for (const action of actions) {
     if (action.pattern.length > 0) {
       // Use the pattern as a hyphen-joined string for the template name
       const templateName = action.pattern.join("-");
 
-      // Convert the direction pattern to points
-      const points = convertPatternToPoints(action.pattern);
-
-      // Add the template to the recognizer
-      recognizer.AddGesture(templateName, points);
+      // Add templates at multiple sizes for better recognition
+      // The $1 Recognizer normalizes gestures, but having multiple
+      // sizes can help with edge cases and improve accuracy
+      for (const segmentLength of SEGMENT_LENGTHS) {
+        const points = convertPatternToPoints(action.pattern, segmentLength);
+        recognizer.AddGesture(templateName, points);
+      }
     }
   }
 
