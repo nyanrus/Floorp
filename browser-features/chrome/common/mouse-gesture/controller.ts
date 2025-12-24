@@ -11,24 +11,24 @@ import {
   stringToPattern,
 } from "./config.ts";
 import { GestureDisplay } from "./components/GestureDisplay.tsx";
-import {
-  executeGestureAction,
-  getActionDisplayName,
-} from "./utils/gestures.ts";
-import {
-  createGestureRecognizer,
-  recognizeGesture,
-} from "./utils/recognizer.ts";
+import { executeGestureAction, getActionDisplayName } from "./utils/gestures.ts";
+import { createRecognizer, recognize } from "./utils/recognizer.ts";
 import type { IDollarRecognizer } from "./utils/dollar.ts";
 
+/**
+ * MouseGestureController handles mouse gesture recognition.
+ *
+ * This controller uses the $1 Unistroke Recognizer algorithm:
+ * - Collects mouse trail points during right-click drag
+ * - Performs real-time recognition during drag for instant feedback
+ * - Executes the action when the gesture is complete (on mouse up)
+ */
 export class MouseGestureController {
   private isGestureActive = false;
   private isContextMenuPrevented = false;
   private preventionTimeoutId: number | null = null;
-  private gesturePattern: GestureDirection[] = [];
   private mouseTrail: { x: number; y: number }[] = [];
   private display: GestureDisplay;
-  private activeActionName = "";
   private eventListenersAttached = false;
   private pressedButtons = new Set<number>();
   private isRockerGestureFired = false;
@@ -42,47 +42,13 @@ export class MouseGestureController {
     this.init();
   }
 
-  private getActivationDistance(config: ReturnType<typeof getConfig>): number {
-    const baseDistance = config.contextMenu?.minDistance ?? 10;
-    const sensitivity = Number.isFinite(config.sensitivity)
-      ? config.sensitivity
-      : 40;
-    const sensitivityFactor = Math.min(Math.max(sensitivity, 1), 100) / 100;
-    const dynamicDistance = 6 + (1 - sensitivityFactor) * 12;
-    return Math.max(baseDistance, dynamicDistance, 10);
-  }
-
-  private getRecognizer(
-    config: ReturnType<typeof getConfig>,
-  ): IDollarRecognizer {
-    const configHash = JSON.stringify(config.actions);
-    if (!this.recognizer || this.lastConfigHash !== configHash) {
-      this.recognizer = createGestureRecognizer(config.actions);
-      this.lastConfigHash = configHash;
-    }
-    return this.recognizer;
-  }
-
-  private getMinScore(config: ReturnType<typeof getConfig>): number {
-    const sensitivity = Number.isFinite(config.sensitivity)
-      ? config.sensitivity
-      : 40;
-    const sensitivityFactor = Math.min(Math.max(sensitivity, 1), 100) / 100;
-    // Higher sensitivity = lower required score (easier to match)
-    return Math.max(0.5, 0.85 - sensitivityFactor * 0.3);
-  }
-
   private init(): void {
     if (this.eventListenersAttached) return;
 
     this.targetWindow.addEventListener("mousedown", this.handleMouseDown);
     this.targetWindow.addEventListener("mousemove", this.handleMouseMove);
     this.targetWindow.addEventListener("mouseup", this.handleMouseUp);
-    this.targetWindow.addEventListener(
-      "contextmenu",
-      this.handleContextMenu,
-      true,
-    );
+    this.targetWindow.addEventListener("contextmenu", this.handleContextMenu, true);
     this.eventListenersAttached = true;
   }
 
@@ -91,11 +57,7 @@ export class MouseGestureController {
       this.targetWindow.removeEventListener("mousedown", this.handleMouseDown);
       this.targetWindow.removeEventListener("mousemove", this.handleMouseMove);
       this.targetWindow.removeEventListener("mouseup", this.handleMouseUp);
-      this.targetWindow.removeEventListener(
-        "contextmenu",
-        this.handleContextMenu,
-        true,
-      );
+      this.targetWindow.removeEventListener("contextmenu", this.handleContextMenu, true);
       this.eventListenersAttached = false;
     }
 
@@ -108,31 +70,84 @@ export class MouseGestureController {
     this.display.destroy();
   }
 
-  private getAdjustedClientCoords(event: MouseEvent): { x: number; y: number } {
-    return {
-      x: event.clientX,
-      y: event.clientY,
-    };
+  /**
+   * Get or create the $1 Recognizer, rebuilding if config changed.
+   */
+  private getRecognizer(): IDollarRecognizer {
+    const config = getConfig();
+    const configHash = JSON.stringify(config.actions);
+
+    if (!this.recognizer || this.lastConfigHash !== configHash) {
+      this.recognizer = createRecognizer(config.actions);
+      this.lastConfigHash = configHash;
+    }
+
+    return this.recognizer;
+  }
+
+  /**
+   * Calculate minimum score threshold based on sensitivity setting.
+   */
+  private getMinScore(): number {
+    const config = getConfig();
+    const sensitivity = Number.isFinite(config.sensitivity) ? config.sensitivity : 40;
+    const sensitivityFactor = Math.min(Math.max(sensitivity, 1), 100) / 100;
+    // Higher sensitivity = lower required score (easier to match)
+    return Math.max(0.5, 0.85 - sensitivityFactor * 0.3);
+  }
+
+  /**
+   * Calculate the minimum movement distance to trigger recognition.
+   */
+  private getActivationDistance(): number {
+    const config = getConfig();
+    const baseDistance = config.contextMenu?.minDistance ?? 10;
+    const sensitivity = Number.isFinite(config.sensitivity) ? config.sensitivity : 40;
+    const sensitivityFactor = Math.min(Math.max(sensitivity, 1), 100) / 100;
+    const dynamicDistance = 6 + (1 - sensitivityFactor) * 12;
+    return Math.max(baseDistance, dynamicDistance, 10);
+  }
+
+  /**
+   * Calculate total movement distance from start to end of trail.
+   */
+  private getTotalMovement(): number {
+    if (this.mouseTrail.length < 2) return 0;
+
+    const startPoint = this.mouseTrail[0];
+    const lastPoint = this.mouseTrail[this.mouseTrail.length - 1];
+
+    const dx = lastPoint.x - startPoint.x;
+    const dy = lastPoint.y - startPoint.y;
+
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  private resetGestureState(): void {
+    this.isGestureActive = false;
+    this.isRockerGestureFired = false;
+    this.mouseTrail = [];
+    this.display.hide();
+    this.pressedButtons.clear();
   }
 
   private handleMouseDown = (event: MouseEvent): void => {
-    if (!isEnabled()) {
-      return;
-    }
+    if (!isEnabled()) return;
 
     this.pressedButtons.add(event.button);
     const config = getConfig();
 
-    // Rocker Gestures
+    // Handle rocker gestures (left+right mouse buttons)
     if (config.rockerGesturesEnabled) {
-      const [LEFT, RIGHT] = [0, 2];
+      const LEFT = 0;
+      const RIGHT = 2;
       let action: string | null = null;
 
-      // Right -> Left
+      // Right button held, then left button pressed -> back
       if (this.isGestureActive && event.button === LEFT) {
         action = "gecko-back";
       }
-      // Left -> Right
+      // Left button held, then right button pressed -> forward
       else if (this.pressedButtons.has(LEFT) && event.button === RIGHT) {
         action = "gecko-forward";
       }
@@ -147,9 +162,8 @@ export class MouseGestureController {
       }
     }
 
-    if (event.button !== 2 || this.isGestureActive) {
-      return;
-    }
+    // Only start gesture on right mouse button
+    if (event.button !== 2 || this.isGestureActive) return;
 
     this.isContextMenuPrevented = true;
     if (this.preventionTimeoutId !== null) {
@@ -158,43 +172,49 @@ export class MouseGestureController {
     }
 
     this.isGestureActive = true;
-    this.gesturePattern = [];
-
-    const coords = this.getAdjustedClientCoords(event);
-    this.mouseTrail = [coords];
-    this.activeActionName = "";
+    this.mouseTrail = [{ x: event.clientX, y: event.clientY }];
 
     this.display.show();
     this.display.updateTrail(this.mouseTrail);
   };
 
   private handleMouseMove = (event: MouseEvent): void => {
-    if (!this.isGestureActive || !isEnabled()) {
-      return;
-    }
+    if (!this.isGestureActive || !isEnabled()) return;
 
-    const config = getConfig();
-    const coords = this.getAdjustedClientCoords(event);
-    this.mouseTrail.push(coords);
+    // Collect trail point
+    this.mouseTrail.push({ x: event.clientX, y: event.clientY });
+    this.display.updateTrail(this.mouseTrail);
 
-    // Run pattern matching every few points for performance
-    if (this.mouseTrail.length % 3 === 0 || this.mouseTrail.length > 20) {
-      const result = this.tryRecognize(config);
+    // Perform real-time recognition for instant feedback
+    const totalMovement = this.getTotalMovement();
+    const activationDistance = this.getActivationDistance();
+
+    if (totalMovement >= activationDistance) {
+      const recognizer = this.getRecognizer();
+      const minScore = this.getMinScore();
+      const result = recognize(recognizer, this.mouseTrail, minScore);
+
       if (result) {
-        this.gesturePattern = result.pattern;
-        this.activeActionName = result.actionName;
+        const config = getConfig();
+        const matchingAction = config.actions.find(
+          (a) => patternToString(a.pattern) === result.patternName,
+        );
+        if (matchingAction) {
+          const actionName = getActionDisplayName(matchingAction.action);
+          this.display.updateActionName(actionName);
+        } else {
+          this.display.updateActionName("");
+        }
       } else {
-        this.activeActionName = "";
+        this.display.updateActionName("");
       }
     }
-
-    this.display.updateTrail(this.mouseTrail);
-    this.display.updateActionName(this.activeActionName);
   };
 
   private handleMouseUp = (event: MouseEvent): void => {
     this.pressedButtons.delete(event.button);
 
+    // Handle rocker gesture cleanup
     if (this.isRockerGestureFired) {
       if (this.pressedButtons.size === 0) {
         this.resetGestureState();
@@ -214,37 +234,49 @@ export class MouseGestureController {
 
     const config = getConfig();
     const preventionTimeout = config.contextMenu.preventionTimeout;
-    const activationDistance = this.getActivationDistance(config);
 
-    // Final pattern recognition
-    const result = this.tryRecognize(config);
-
-    if (result) {
-      this.gesturePattern = result.pattern;
-      this.activeActionName = result.actionName;
-      this.display.updateActionName(this.activeActionName);
-      setTimeout(() => {
-        executeGestureAction(result.action);
-        this.resetGestureState();
-        this.preventionTimeoutId = setTimeout(() => {
-          this.isContextMenuPrevented = false;
-          this.preventionTimeoutId = null;
-        }, preventionTimeout);
-      }, 100);
-
-      return;
-    }
-
-    // If no gesture recognized, check minimum movement distance
+    // Check if we moved enough to be considered a gesture
     const totalMovement = this.getTotalMovement();
-    const minMovement = Math.max(activationDistance * 0.85, 10);
+    const activationDistance = this.getActivationDistance();
 
-    if (totalMovement < minMovement) {
+    if (totalMovement < activationDistance) {
+      // Not enough movement - allow context menu
       this.isContextMenuPrevented = false;
       this.resetGestureState();
       return;
     }
 
+    // Use $1 Recognizer to identify the gesture
+    const recognizer = this.getRecognizer();
+    const minScore = this.getMinScore();
+    const result = recognize(recognizer, this.mouseTrail, minScore);
+
+    if (result) {
+      // Find the matching action from config
+      const pattern = stringToPattern(result.patternName);
+      const matchingAction = config.actions.find(
+        (a) => patternToString(a.pattern) === result.patternName,
+      );
+
+      if (matchingAction) {
+        const actionName = getActionDisplayName(matchingAction.action);
+        this.display.updateActionName(actionName);
+
+        // Execute the action after a brief display delay
+        setTimeout(() => {
+          executeGestureAction(matchingAction.action);
+          this.resetGestureState();
+          this.preventionTimeoutId = setTimeout(() => {
+            this.isContextMenuPrevented = false;
+            this.preventionTimeoutId = null;
+          }, preventionTimeout);
+        }, 100);
+
+        return;
+      }
+    }
+
+    // No gesture recognized - prevent context menu and reset
     this.preventionTimeoutId = setTimeout(() => {
       this.isContextMenuPrevented = false;
       this.preventionTimeoutId = null;
@@ -253,76 +285,10 @@ export class MouseGestureController {
     this.resetGestureState();
   };
 
-  private getTotalMovement(): number {
-    if (this.mouseTrail.length < 2) return 0;
-
-    const startPoint = this.mouseTrail[0];
-    const lastPoint = this.mouseTrail[this.mouseTrail.length - 1];
-
-    const dx = lastPoint.x - startPoint.x;
-    const dy = lastPoint.y - startPoint.y;
-
-    return Math.sqrt(dx * dx + dy * dy);
-  }
-
-  private resetGestureState(): void {
-    this.isGestureActive = false;
-    this.isRockerGestureFired = false;
-    this.gesturePattern = [];
-    this.mouseTrail = [];
-    this.activeActionName = "";
-    this.display.hide();
-    this.pressedButtons.clear();
-  }
-
   private handleContextMenu = (event: MouseEvent): void => {
     if ((this.isGestureActive || this.isContextMenuPrevented) && isEnabled()) {
       event.preventDefault();
       event.stopPropagation();
     }
   };
-
-  /**
-   * Try to recognize the current gesture using the $1 Unistroke Recognizer.
-   * Returns the matched pattern, action name, and action ID if successful.
-   */
-  private tryRecognize(
-    config: ReturnType<typeof getConfig>,
-  ): { pattern: GestureDirection[]; actionName: string; action: string } | null {
-    if (this.mouseTrail.length < 2) {
-      return null;
-    }
-
-    // Check minimum movement distance
-    const totalMovement = this.getTotalMovement();
-    const minDistance = this.getActivationDistance(config);
-    if (totalMovement < minDistance) {
-      return null;
-    }
-
-    // Use the $1 Recognizer
-    const recognizer = this.getRecognizer(config);
-    const minScore = this.getMinScore(config);
-    const result = recognizeGesture(recognizer, this.mouseTrail, minScore);
-
-    if (!result) {
-      return null;
-    }
-
-    // Convert pattern string to directions and find the matching action
-    const pattern = stringToPattern(result.pattern);
-    const matchingAction = config.actions.find(
-      (a) => patternToString(a.pattern) === result.pattern,
-    );
-
-    if (!matchingAction) {
-      return null;
-    }
-
-    return {
-      pattern,
-      actionName: getActionDisplayName(matchingAction.action),
-      action: matchingAction.action,
-    };
-  }
 }
