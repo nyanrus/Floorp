@@ -144,87 +144,116 @@ export interface RecognitionResult {
 }
 
 /**
- * Calculate the expected direction vector for a pattern.
- * This computes the overall direction from start to end point.
+ * Calculate the angle of the first direction in a pattern using arctan.
+ * Returns the angle in radians, where 0 = right, PI/2 = down, PI = left, -PI/2 = up.
+ * This helps distinguish opposite gestures like "up-down" vs "down-up" by
+ * comparing first movement direction.
  */
-function getPatternDirection(pattern: GestureDirection[]): { dx: number; dy: number } {
-  let totalDx = 0;
-  let totalDy = 0;
-
-  for (const direction of pattern) {
-    const vector = DIRECTION_VECTORS[direction];
-    totalDx += vector.dx;
-    totalDy += vector.dy;
+function getPatternFirstAngle(pattern: GestureDirection[]): number | null {
+  if (pattern.length === 0) {
+    return null;
   }
 
-  // Normalize the vector
-  const length = Math.sqrt(totalDx * totalDx + totalDy * totalDy);
-  if (length === 0) {
-    return { dx: 0, dy: 0 };
-  }
+  // Get the first direction's vector
+  const firstDirection = pattern[0];
+  const vector = DIRECTION_VECTORS[firstDirection];
 
-  return { dx: totalDx / length, dy: totalDy / length };
+  // Use atan2 to get the angle (dy, dx order for screen coordinates where Y increases downward)
+  return Math.atan2(vector.dy, vector.dx);
 }
 
 /**
- * Calculate the actual direction vector from a mouse trail.
- * Compares first and last points to determine overall direction.
+ * Minimum distance (in pixels) for a movement to be considered significant.
+ * This threshold helps filter out noise in the mouse trail.
  */
-function getTrailDirection(trail: { x: number; y: number }[]): { dx: number; dy: number } {
+const MIN_MOVEMENT_DISTANCE = 15;
+
+/**
+ * Calculate the angle of the first significant movement from a mouse trail using arctan.
+ * Finds the first point that is far enough from the start to determine direction.
+ * Returns the angle in radians, or null if no significant movement is found.
+ */
+function getTrailFirstAngle(trail: { x: number; y: number }[]): number | null {
   if (trail.length < 2) {
-    return { dx: 0, dy: 0 };
+    return null;
   }
 
-  const first = trail[0];
+  const start = trail[0];
+
+  // Find the first point that is far enough to determine direction
+  for (let i = 1; i < trail.length; i++) {
+    const dx = trail[i].x - start.x;
+    const dy = trail[i].y - start.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    if (distance >= MIN_MOVEMENT_DISTANCE) {
+      // Use atan2 to get the angle (dy, dx order for screen coordinates)
+      return Math.atan2(dy, dx);
+    }
+  }
+
+  // If no point is far enough, use the last point
   const last = trail[trail.length - 1];
+  const dx = last.x - start.x;
+  const dy = last.y - start.y;
+  const distance = Math.sqrt(dx * dx + dy * dy);
 
-  const dx = last.x - first.x;
-  const dy = last.y - first.y;
-
-  // Normalize the vector
-  const length = Math.sqrt(dx * dx + dy * dy);
-  if (length === 0) {
-    return { dx: 0, dy: 0 };
+  if (distance > 0) {
+    return Math.atan2(dy, dx);
   }
 
-  return { dx: dx / length, dy: dy / length };
+  return null;
 }
 
 /**
- * Validate that the trail direction matches the expected pattern direction.
- * Uses dot product to check if they point in the same general direction.
- * This helps distinguish between opposite gestures like "upRight" vs "downLeft"
- * which the $1 recognizer treats as the same after normalization.
+ * Maximum allowed angle difference (in radians) for direction validation.
+ * PI/2 (90 degrees) allows for some tolerance while still distinguishing
+ * opposite directions (which differ by PI or 180 degrees).
+ */
+const MAX_ANGLE_DIFFERENCE = Math.PI / 2;
+
+/**
+ * Calculate the angular difference between two angles, accounting for wraparound.
+ * Returns the smallest angle between the two directions (0 to PI).
+ */
+function angleDifference(angle1: number, angle2: number): number {
+  let diff = Math.abs(angle1 - angle2);
+  // Normalize to [0, PI] range since we want the smallest angle between directions
+  if (diff > Math.PI) {
+    diff = 2 * Math.PI - diff;
+  }
+  return diff;
+}
+
+/**
+ * Validate that the trail's first movement direction matches the pattern's first direction.
+ * Uses arctan-based angle comparison to distinguish opposite gestures like
+ * "up-down" vs "down-up" and "upRight" vs "downLeft".
  */
 function validateDirection(
   pattern: GestureDirection[],
   trail: { x: number; y: number }[],
 ): boolean {
-  const expectedDir = getPatternDirection(pattern);
-  const actualDir = getTrailDirection(trail);
+  const expectedAngle = getPatternFirstAngle(pattern);
+  const actualAngle = getTrailFirstAngle(trail);
 
-  // If either vector is zero, we can't validate direction
-  if (
-    (expectedDir.dx === 0 && expectedDir.dy === 0) ||
-    (actualDir.dx === 0 && actualDir.dy === 0)
-  ) {
-    return true; // Allow it to pass
+  // If either angle couldn't be determined, allow it to pass
+  if (expectedAngle === null || actualAngle === null) {
+    return true;
   }
 
-  // Calculate dot product - positive means same direction, negative means opposite
-  const dotProduct = expectedDir.dx * actualDir.dx + expectedDir.dy * actualDir.dy;
-
-  // Require positive dot product (vectors pointing in same general direction)
-  return dotProduct > 0;
+  // Compare angles - they should be within 90 degrees of each other
+  const diff = angleDifference(expectedAngle, actualAngle);
+  return diff <= MAX_ANGLE_DIFFERENCE;
 }
 
 /**
  * Recognize a gesture from mouse trail points.
  *
  * Uses the $1 Recognizer's Protractor algorithm for fast matching.
- * Additionally validates that the gesture direction matches by comparing
- * first and last points, to distinguish between opposite gestures like
- * "upRight" and "downLeft" which $1 treats as identical after normalization.
+ * Additionally validates the first movement direction using arctan to
+ * distinguish between opposite gestures like "up-down" vs "down-up" and
+ * "upRight" vs "downLeft" which $1 treats as identical after normalization.
  *
  * Returns the matched pattern name and confidence score if successful.
  */
@@ -250,8 +279,8 @@ export function recognize(
     // Parse the pattern from the result name (format: "up-right-down")
     const patternDirs = result.Name.split("-") as GestureDirection[];
 
-    // Validate direction by comparing first and last points
-    // This distinguishes opposite gestures like "upRight" vs "downLeft"
+    // Validate first movement direction using arctan-based comparison
+    // This distinguishes opposite gestures like "up-down" vs "down-up"
     if (!validateDirection(patternDirs, trail)) {
       // Direction doesn't match - try to find another pattern with matching direction
       if (actions) {
