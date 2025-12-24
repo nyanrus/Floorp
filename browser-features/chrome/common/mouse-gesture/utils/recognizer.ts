@@ -315,6 +315,13 @@ const TWO_PI = 2 * Math.PI;
 const OSCILLATION_RATIO = 3;
 
 /**
+ * Displacement threshold for confirming oscillation.
+ * If the start-to-end displacement is less than 50% of the total range,
+ * the gesture is considered to have oscillated back-and-forth.
+ */
+const OSCILLATION_DISPLACEMENT_THRESHOLD = 0.5;
+
+/**
  * Confidence score for gestures detected by geometric analysis.
  * Set to 1.0 (maximum) since geometric detection is very reliable for simple patterns.
  */
@@ -360,15 +367,14 @@ function isOscillatingLine(trail: { x: number; y: number }[]): OscillationResult
   const startToEndDy = Math.abs(end.y - start.y);
 
   if (hasVerticalDominance) {
-    // For vertical oscillation, the start-to-end vertical distance should be
+    // For vertical oscillation, the start-to-end vertical displacement should be
     // significantly less than the total vertical range (indicating back-and-forth movement)
-    // Use a threshold of 0.5: if end is less than halfway back, it's oscillating
-    if (startToEndDy < height * 0.5) {
+    if (startToEndDy < height * OSCILLATION_DISPLACEMENT_THRESHOLD) {
       return { isOscillating: true, axis: "vertical" };
     }
   } else if (hasHorizontalDominance) {
     // For horizontal oscillation, same logic applies
-    if (startToEndDx < width * 0.5) {
+    if (startToEndDx < width * OSCILLATION_DISPLACEMENT_THRESHOLD) {
       return { isOscillating: true, axis: "horizontal" };
     }
   }
