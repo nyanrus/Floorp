@@ -38,6 +38,54 @@ const DIRECTION_VECTORS: Record<GestureDirection, { dx: number; dy: number }> = 
 };
 
 /**
+ * Mapping of each direction to its 180-degree opposite.
+ * The $1 recognizer normalizes gestures by rotating them to a canonical orientation,
+ * so opposite gestures (like "left" and "right") produce the same shape signature.
+ */
+const OPPOSITE_DIRECTION: Record<GestureDirection, GestureDirection> = {
+  right: "left",
+  left: "right",
+  up: "down",
+  down: "up",
+  upRight: "downLeft",
+  downLeft: "upRight",
+  upLeft: "downRight",
+  downRight: "upLeft",
+};
+
+/**
+ * Check if two patterns have the same shape signature when normalized by $1.
+ * Two patterns have the same shape if one is the 180-degree rotation of the other.
+ * This is because $1 normalizes gestures by rotating them, making opposite gestures identical.
+ *
+ * Examples of patterns with the same shape:
+ * - ["right"] and ["left"]
+ * - ["up", "right"] and ["down", "left"]
+ * - ["upRight"] and ["downLeft"]
+ */
+function hasSameShapeSignature(
+  pattern1: GestureDirection[],
+  pattern2: GestureDirection[],
+): boolean {
+  // Patterns must have the same length
+  if (pattern1.length !== pattern2.length) {
+    return false;
+  }
+
+  // Check if pattern2 is the same as pattern1
+  const isSame = pattern1.every((dir, i) => dir === pattern2[i]);
+  if (isSame) {
+    return true;
+  }
+
+  // Check if pattern2 is the 180-degree rotation of pattern1
+  const isOpposite = pattern1.every(
+    (dir, i) => OPPOSITE_DIRECTION[dir] === pattern2[i],
+  );
+  return isOpposite;
+}
+
+/**
  * Create a $1 Recognizer Point object.
  */
 function createPoint(x: number, y: number): DollarPoint {
@@ -264,9 +312,14 @@ function validateDirection(
  * Recognize a gesture from mouse trail points.
  *
  * Uses the $1 Recognizer's Protractor algorithm for fast matching.
- * Additionally validates the first movement direction using arctan to
- * distinguish between opposite gestures like "up-down" vs "down-up" and
- * "upRight" vs "downLeft" which $1 treats as identical after normalization.
+ * Since $1 normalizes gestures by rotation, opposite gestures (like "left" vs "right"
+ * or ["up", "right"] vs ["down", "left"]) produce the same shape signature.
+ *
+ * To distinguish between these, we:
+ * 1. Get the shape match from $1 recognizer
+ * 2. Validate the first movement direction using arctan
+ * 3. If direction doesn't match, look for patterns with the same shape signature
+ *    but matching first direction
  *
  * Returns the matched pattern name and confidence score if successful.
  */
@@ -295,15 +348,23 @@ export function recognize(
     // Validate first movement direction using arctan-based comparison
     // This distinguishes opposite gestures like "up-down" vs "down-up"
     if (!validateDirection(patternDirs, trail)) {
-      // Direction doesn't match - try to find another pattern with matching direction
+      // Direction doesn't match - try to find another pattern with the same shape
+      // but with a matching first direction
       if (actions) {
-        // Look for another action whose direction matches the user's actual trail
+        // Look for another action with the same shape signature and matching direction
         for (const action of actions) {
           const actionPatternName = action.pattern.join("-");
-          // Skip the already-matched pattern and only accept patterns with matching direction
-          if (actionPatternName !== result.Name && validateDirection(action.pattern, trail)) {
-            // Found a pattern with matching direction - return it with the original score
-            // since the shape was already validated by the $1 recognizer
+          // Skip the already-matched pattern
+          if (actionPatternName === result.Name) {
+            continue;
+          }
+          // Only consider patterns with the same shape signature (e.g., "left" matches "right")
+          // and verify that the first direction matches the user's actual gesture
+          if (
+            hasSameShapeSignature(patternDirs, action.pattern) &&
+            validateDirection(action.pattern, trail)
+          ) {
+            // Found a pattern with matching shape and direction - return it with the original score
             return {
               patternName: actionPatternName,
               score: result.Score,
