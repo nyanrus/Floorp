@@ -4,11 +4,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import {
-  type GestureDirection,
   getConfig,
   isEnabled,
   patternToString,
-  stringToPattern,
 } from "./config.ts";
 import { GestureDisplay } from "./components/GestureDisplay.tsx";
 import { executeGestureAction, getActionDisplayName } from "./utils/gestures.ts";
@@ -34,6 +32,7 @@ export class MouseGestureController {
   private isRockerGestureFired = false;
   private targetWindow: Window;
   private recognizer: IDollarRecognizer | null = null;
+  private patternActionMap: Map<string, { action: string; displayName: string }> = new Map();
   private lastConfigHash = "";
 
   constructor(win: Window = globalThis as unknown as Window) {
@@ -72,6 +71,7 @@ export class MouseGestureController {
 
   /**
    * Get or create the $1 Recognizer, rebuilding if config changed.
+   * Also builds the pattern-to-action lookup map for fast access.
    */
   private getRecognizer(): IDollarRecognizer {
     const config = getConfig();
@@ -80,6 +80,16 @@ export class MouseGestureController {
     if (!this.recognizer || this.lastConfigHash !== configHash) {
       this.recognizer = createRecognizer(config.actions);
       this.lastConfigHash = configHash;
+
+      // Build pattern-to-action map for fast lookup
+      this.patternActionMap.clear();
+      for (const action of config.actions) {
+        const patternKey = patternToString(action.pattern);
+        this.patternActionMap.set(patternKey, {
+          action: action.action,
+          displayName: getActionDisplayName(action.action),
+        });
+      }
     }
 
     return this.recognizer;
@@ -195,13 +205,10 @@ export class MouseGestureController {
       const result = recognize(recognizer, this.mouseTrail, minScore);
 
       if (result) {
-        const config = getConfig();
-        const matchingAction = config.actions.find(
-          (a) => patternToString(a.pattern) === result.patternName,
-        );
-        if (matchingAction) {
-          const actionName = getActionDisplayName(matchingAction.action);
-          this.display.updateActionName(actionName);
+        // Use cached pattern-to-action map for fast lookup
+        const actionInfo = this.patternActionMap.get(result.patternName);
+        if (actionInfo) {
+          this.display.updateActionName(actionInfo.displayName);
         } else {
           this.display.updateActionName("");
         }
@@ -252,19 +259,15 @@ export class MouseGestureController {
     const result = recognize(recognizer, this.mouseTrail, minScore);
 
     if (result) {
-      // Find the matching action from config
-      const pattern = stringToPattern(result.patternName);
-      const matchingAction = config.actions.find(
-        (a) => patternToString(a.pattern) === result.patternName,
-      );
+      // Use cached pattern-to-action map for fast lookup
+      const actionInfo = this.patternActionMap.get(result.patternName);
 
-      if (matchingAction) {
-        const actionName = getActionDisplayName(matchingAction.action);
-        this.display.updateActionName(actionName);
+      if (actionInfo) {
+        this.display.updateActionName(actionInfo.displayName);
 
         // Execute the action after a brief display delay
         setTimeout(() => {
-          executeGestureAction(matchingAction.action);
+          executeGestureAction(actionInfo.action);
           this.resetGestureState();
           this.preventionTimeoutId = setTimeout(() => {
             this.isContextMenuPrevented = false;
