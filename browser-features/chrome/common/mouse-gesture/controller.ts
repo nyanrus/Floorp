@@ -10,7 +10,7 @@ import {
 } from "./config.ts";
 import { GestureDisplay } from "./components/GestureDisplay.tsx";
 import { executeGestureAction, getActionDisplayName } from "./utils/gestures.ts";
-import { createRecognizer, recognize } from "./utils/recognizer.ts";
+import { createRecognizer, recognize, type ShapeDatabase } from "./utils/recognizer.ts";
 import type { IDollarRecognizer } from "./utils/dollar.ts";
 
 /**
@@ -32,6 +32,7 @@ export class MouseGestureController {
   private isRockerGestureFired = false;
   private targetWindow: Window;
   private recognizer: IDollarRecognizer | null = null;
+  private shapeDb: ShapeDatabase | null = null;
   private patternActionMap: Map<string, { action: string; displayName: string }> = new Map();
   private lastConfigHash = "";
 
@@ -73,12 +74,14 @@ export class MouseGestureController {
    * Get or create the $1 Recognizer, rebuilding if config changed.
    * Also builds the pattern-to-action lookup map for fast access.
    */
-  private getRecognizer(): IDollarRecognizer {
+  private getRecognizerAndShapeDb(): { recognizer: IDollarRecognizer; shapeDb: ShapeDatabase } {
     const config = getConfig();
     const configHash = JSON.stringify(config.actions);
 
-    if (!this.recognizer || this.lastConfigHash !== configHash) {
-      this.recognizer = createRecognizer(config.actions);
+    if (!this.recognizer || !this.shapeDb || this.lastConfigHash !== configHash) {
+      const result = createRecognizer(config.actions);
+      this.recognizer = result.recognizer;
+      this.shapeDb = result.shapeDb;
       this.lastConfigHash = configHash;
 
       // Build pattern-to-action map for fast lookup
@@ -92,7 +95,7 @@ export class MouseGestureController {
       }
     }
 
-    return this.recognizer;
+    return { recognizer: this.recognizer, shapeDb: this.shapeDb };
   }
 
   /**
@@ -200,10 +203,9 @@ export class MouseGestureController {
     const activationDistance = this.getActivationDistance();
 
     if (totalMovement >= activationDistance) {
-      const recognizer = this.getRecognizer();
+      const { recognizer, shapeDb } = this.getRecognizerAndShapeDb();
       const minScore = this.getMinScore();
-      const config = getConfig();
-      const result = recognize(recognizer, this.mouseTrail, minScore, config.actions);
+      const result = recognize(recognizer, this.mouseTrail, minScore, shapeDb);
 
       if (result) {
         // Use cached pattern-to-action map for fast lookup
@@ -255,9 +257,9 @@ export class MouseGestureController {
     }
 
     // Use $1 Recognizer to identify the gesture
-    const recognizer = this.getRecognizer();
+    const { recognizer, shapeDb } = this.getRecognizerAndShapeDb();
     const minScore = this.getMinScore();
-    const result = recognize(recognizer, this.mouseTrail, minScore, config.actions);
+    const result = recognize(recognizer, this.mouseTrail, minScore, shapeDb);
 
     if (result) {
       // Use cached pattern-to-action map for fast lookup
