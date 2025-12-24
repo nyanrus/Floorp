@@ -66,6 +66,32 @@
  * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 **/
+
+// TypeScript interfaces for the $1 Recognizer
+export interface DollarPoint {
+	X: number;
+	Y: number;
+}
+
+export interface DollarResult {
+	Name: string;
+	Score: number;
+	Time: number;
+}
+
+export interface DollarUnistroke {
+	Name: string;
+	Points: DollarPoint[];
+	Vector: number[];
+}
+
+export interface IDollarRecognizer {
+	Unistrokes: DollarUnistroke[];
+	Recognize(points: DollarPoint[], useProtractor: boolean): DollarResult;
+	AddGesture(name: string, points: DollarPoint[]): number;
+	DeleteUserGestures(): number;
+}
+
 //
 // Point class
 //
@@ -347,3 +373,6 @@ function Distance(p1, p2)
 	return Math.sqrt(dx * dx + dy * dy);
 }
 function Deg2Rad(d) { return (d * Math.PI / 180.0); }
+
+// Exports for ES modules
+export { Point, DollarRecognizer };
