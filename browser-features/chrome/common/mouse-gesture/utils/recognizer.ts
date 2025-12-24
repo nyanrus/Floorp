@@ -176,14 +176,21 @@ export function createRecognizer(actions: GestureAction[]): RecognizerWithShapeD
   // Build shape database - maps shape keys to their variants
   const shapeDb: ShapeDatabase = new Map();
 
-  // Track which shapes have been registered to avoid duplicates
-  const registeredShapes = new Set<string>();
+  // Track processed pattern names to avoid duplicate variants
+  const processedPatterns = new Set<string>();
 
   // Add each configured gesture as a template
   for (const action of actions) {
     if (action.pattern.length > 0) {
       // Use the pattern as a hyphen-joined string for the template name
       const patternName = action.pattern.join("-");
+
+      // Skip if this exact pattern has already been processed
+      if (processedPatterns.has(patternName)) {
+        continue;
+      }
+      processedPatterns.add(patternName);
+
       const firstAngle = getPatternFirstAngle(action.pattern);
 
       // Create the shape variant entry
@@ -193,44 +200,35 @@ export function createRecognizer(actions: GestureAction[]): RecognizerWithShapeD
         firstAngle,
       };
 
-      // Check if this exact pattern name is already registered as a shape key
-      if (shapeDb.has(patternName)) {
-        // This pattern is already the representative for its shape, add as variant
-        shapeDb.get(patternName)!.variants.push(variant);
-      } else {
-        // Check if we should add to an existing shape entry
-        // by checking if any existing shape key matches this pattern
-        let foundExistingShape = false;
-        for (const [shapeKey, entry] of shapeDb) {
-          // If the recognizer returns this shapeKey when given the pattern's points,
-          // they share the same shape signature
-          const testPoints = convertPatternToPoints(action.pattern, 100);
-          const testResult = recognizer.Recognize(testPoints, true);
-          if (testResult.Name === shapeKey && testResult.Score > 0.95) {
-            // Same shape - add as variant
-            entry.variants.push(variant);
+      // Check if this pattern's shape matches any existing shape in the database
+      // by using the $1 recognizer to detect shape similarity
+      let foundExistingShape = false;
+      if (shapeDb.size > 0) {
+        // Generate test points once for this pattern
+        const testPoints = convertPatternToPoints(action.pattern, 100);
+        const testResult = recognizer.Recognize(testPoints, true);
+
+        // If the recognizer found a match, add as a variant of that shape
+        if (testResult.Name !== "No match." && testResult.Score > 0.95) {
+          const shapeEntry = shapeDb.get(testResult.Name);
+          if (shapeEntry) {
+            shapeEntry.variants.push(variant);
             foundExistingShape = true;
-            break;
           }
         }
+      }
 
-        if (!foundExistingShape) {
-          // New unique shape - register to $1 and create new entry
-          shapeDb.set(patternName, {
-            shapeKey: patternName,
-            variants: [variant],
-          });
+      if (!foundExistingShape) {
+        // New unique shape - register to $1 and create new entry
+        shapeDb.set(patternName, {
+          shapeKey: patternName,
+          variants: [variant],
+        });
 
-          // Only register if not already registered
-          if (!registeredShapes.has(patternName)) {
-            registeredShapes.add(patternName);
-
-            // Add templates at multiple sizes for better recognition
-            for (const segmentLength of SEGMENT_LENGTHS) {
-              const points = convertPatternToPoints(action.pattern, segmentLength);
-              recognizer.AddGesture(patternName, points);
-            }
-          }
+        // Add templates at multiple sizes for better recognition
+        for (const segmentLength of SEGMENT_LENGTHS) {
+          const points = convertPatternToPoints(action.pattern, segmentLength);
+          recognizer.AddGesture(patternName, points);
         }
       }
     }
