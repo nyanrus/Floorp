@@ -343,11 +343,34 @@ function isOscillatingLine(trail: { x: number; y: number }[]): OscillationResult
   const width = Math.max(...xValues) - Math.min(...xValues);
   const height = Math.max(...yValues) - Math.min(...yValues);
 
-  // One dimension is dominant
-  if (height > OSCILLATION_RATIO * width) {
-    return { isOscillating: true, axis: "vertical" };
-  } else if (width > OSCILLATION_RATIO * height) {
-    return { isOscillating: true, axis: "horizontal" };
+  // Check if one dimension is dominant
+  const hasVerticalDominance = height > OSCILLATION_RATIO * width;
+  const hasHorizontalDominance = width > OSCILLATION_RATIO * height;
+
+  if (!hasVerticalDominance && !hasHorizontalDominance) {
+    return { isOscillating: false, axis: null };
+  }
+
+  // To be truly oscillating, the gesture must change direction along the dominant axis
+  // Check if there's a reversal in direction by comparing start-to-end displacement
+  // with the bounding box size
+  const start = trail[0];
+  const end = trail[trail.length - 1];
+  const startToEndDx = Math.abs(end.x - start.x);
+  const startToEndDy = Math.abs(end.y - start.y);
+
+  if (hasVerticalDominance) {
+    // For vertical oscillation, the start-to-end vertical distance should be
+    // significantly less than the total vertical range (indicating back-and-forth movement)
+    // Use a threshold of 0.5: if end is less than halfway back, it's oscillating
+    if (startToEndDy < height * 0.5) {
+      return { isOscillating: true, axis: "vertical" };
+    }
+  } else if (hasHorizontalDominance) {
+    // For horizontal oscillation, same logic applies
+    if (startToEndDx < width * 0.5) {
+      return { isOscillating: true, axis: "horizontal" };
+    }
   }
 
   return { isOscillating: false, axis: null };
@@ -521,7 +544,7 @@ export function recognize(
           score: GEOMETRIC_DETECTION_CONFIDENCE,
         };
       }
-      // Pattern not configured, fall through to $1 recognizer
+      // Pattern not configured, fall through to straight line check
     }
   }
 
