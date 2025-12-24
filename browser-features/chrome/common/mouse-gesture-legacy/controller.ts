@@ -303,7 +303,7 @@ export class MouseGestureController {
     // Use the $1 Recognizer
     const recognizer = this.getRecognizer(config);
     const minScore = this.getMinScore(config);
-    const result = recognizeGesture(recognizer, this.mouseTrail, minScore);
+    const result = recognizeGesture(recognizer, this.mouseTrail, minScore, config.actions);
 
     if (!result) {
       return null;

@@ -202,7 +202,8 @@ export class MouseGestureController {
     if (totalMovement >= activationDistance) {
       const recognizer = this.getRecognizer();
       const minScore = this.getMinScore();
-      const result = recognize(recognizer, this.mouseTrail, minScore);
+      const config = getConfig();
+      const result = recognize(recognizer, this.mouseTrail, minScore, config.actions);
 
       if (result) {
         // Use cached pattern-to-action map for fast lookup
@@ -256,7 +257,7 @@ export class MouseGestureController {
     // Use $1 Recognizer to identify the gesture
     const recognizer = this.getRecognizer();
     const minScore = this.getMinScore();
-    const result = recognize(recognizer, this.mouseTrail, minScore);
+    const result = recognize(recognizer, this.mouseTrail, minScore, config.actions);
 
     if (result) {
       // Use cached pattern-to-action map for fast lookup
