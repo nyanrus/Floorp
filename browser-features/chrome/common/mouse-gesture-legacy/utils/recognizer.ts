@@ -64,6 +64,13 @@ function generatePatternPoints(
 }
 
 /**
+ * Segment lengths for generating multiple-size templates.
+ * The $1 Unistroke Recognizer works better with multiple templates
+ * at different scales to handle varying gesture sizes.
+ */
+const SEGMENT_LENGTHS = [50, 100, 200, 400, 800];
+
+/**
  * Create a gesture recognizer configured with the given actions.
  */
 export function createGestureRecognizer(
@@ -77,12 +84,15 @@ export function createGestureRecognizer(
   recognizer.DeleteUserGestures();
   recognizer.Unistrokes.length = 0;
 
-  // Add gesture templates for each action
+  // Add gesture templates for each action at multiple sizes
   for (const action of actions) {
     if (action.pattern.length > 0) {
       const patternName = action.pattern.join("-");
-      const points = generatePatternPoints(action.pattern);
-      recognizer.AddGesture(patternName, points);
+      // Add templates at multiple sizes for better recognition
+      for (const segmentLength of SEGMENT_LENGTHS) {
+        const points = generatePatternPoints(action.pattern, segmentLength);
+        recognizer.AddGesture(patternName, points);
+      }
     }
   }
 

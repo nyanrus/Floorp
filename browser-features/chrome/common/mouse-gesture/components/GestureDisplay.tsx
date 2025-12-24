@@ -28,6 +28,7 @@ export function GestureDisplayUI(props: {
 
     return (
       <svg
+        xmlns="http://www.w3.org/2000/svg"
         style={{
           position: "fixed",
           top: "0",
@@ -36,6 +37,7 @@ export function GestureDisplayUI(props: {
           height: "100vh",
           "pointer-events": "none",
           overflow: "visible",
+          "z-index": "999998",
         }}
       >
         <polyline
@@ -45,10 +47,7 @@ export function GestureDisplayUI(props: {
           stroke-width={trailWidth}
           stroke-linecap="round"
           stroke-linejoin="round"
-          style={{
-            filter: `drop-shadow(0 0 2px ${trailColor})`,
-            opacity: "0.7",
-          }}
+          opacity="0.9"
         />
       </svg>
     );
@@ -66,21 +65,10 @@ export function GestureDisplayUI(props: {
             height: "100vh",
             "pointer-events": "none",
             "z-index": "999999",
+            overflow: "visible",
           }}
         >
-          <div
-            style={{
-              position: "fixed",
-              top: "0",
-              left: "0",
-              width: "100%",
-              height: "100%",
-              "pointer-events": "none",
-              overflow: "visible",
-            }}
-          >
-            {getTrailElement()}
-          </div>
+          {getTrailElement()}
 
           <Show when={props.actionName && getConfig().showLabel}>
             <div
@@ -153,8 +141,7 @@ export class GestureDisplay {
                 overflow: visible;
             }
 
-            #mouse-gesture-display-container * {
-                position: fixed;
+            #mouse-gesture-display-container > * {
                 pointer-events: none;
             }
         `;
