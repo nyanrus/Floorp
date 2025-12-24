@@ -8,7 +8,12 @@
  * This provides a simple interface for recognizing directional gestures.
  */
 
-import { DollarRecognizer, Point } from "./dollar.ts";
+import {
+  DollarRecognizer,
+  Point,
+  type DollarPoint,
+  type IDollarRecognizer,
+} from "./dollar.ts";
 import type { GestureDirection, GestureAction } from "../config.ts";
 
 // Direction vectors for generating gesture templates
@@ -24,13 +29,19 @@ const DIRECTION_VECTORS: Record<GestureDirection, { dx: number; dy: number }> =
     upRight: { dx: 0.707, dy: -0.707 },
   };
 
+// Create a point using the Point constructor
+function createPoint(x: number, y: number): DollarPoint {
+  // The Point function is a constructor that creates {X, Y} objects
+  return (Point as unknown as new (x: number, y: number) => DollarPoint)(x, y);
+}
+
 // Generate points for a gesture pattern
 function generatePatternPoints(
   pattern: GestureDirection[],
   segmentLength = 100,
   pointsPerSegment = 20,
-): { X: number; Y: number }[] {
-  const points: { X: number; Y: number }[] = [];
+): DollarPoint[] {
+  const points: DollarPoint[] = [];
   let x = 0;
   let y = 0;
 
@@ -40,16 +51,14 @@ function generatePatternPoints(
     const stepY = (vec.dy * segmentLength) / pointsPerSegment;
 
     for (let i = 0; i < pointsPerSegment; i++) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      points.push(new (Point as any)(x, y));
+      points.push(createPoint(x, y));
       x += stepX;
       y += stepY;
     }
   }
 
   // Add final point
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  points.push(new (Point as any)(x, y));
+  points.push(createPoint(x, y));
 
   return points;
 }
@@ -57,10 +66,12 @@ function generatePatternPoints(
 /**
  * Create a gesture recognizer configured with the given actions.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function createGestureRecognizer(actions: GestureAction[]): any {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const recognizer = new (DollarRecognizer as any)();
+export function createGestureRecognizer(
+  actions: GestureAction[],
+): IDollarRecognizer {
+  const recognizer = (
+    DollarRecognizer as unknown as new () => IDollarRecognizer
+  )();
 
   // Remove built-in gestures
   recognizer.DeleteUserGestures();
@@ -83,8 +94,7 @@ export function createGestureRecognizer(actions: GestureAction[]): any {
  * Returns the pattern name and score, or null if no match.
  */
 export function recognizeGesture(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  recognizer: any,
+  recognizer: IDollarRecognizer,
   trail: { x: number; y: number }[],
   minScore = 0.7,
 ): { pattern: string; score: number } | null {
@@ -93,8 +103,7 @@ export function recognizeGesture(
   }
 
   // Convert trail to $1 Point format
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const points = trail.map((p) => new (Point as any)(p.x, p.y));
+  const points = trail.map((p) => createPoint(p.x, p.y));
 
   // Use Protractor algorithm (faster)
   const result = recognizer.Recognize(points, true);

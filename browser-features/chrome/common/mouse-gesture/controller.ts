@@ -19,6 +19,7 @@ import {
   createGestureRecognizer,
   recognizeGesture,
 } from "./utils/recognizer.ts";
+import type { IDollarRecognizer } from "./utils/dollar.ts";
 
 export class MouseGestureController {
   private isGestureActive = false;
@@ -32,8 +33,7 @@ export class MouseGestureController {
   private pressedButtons = new Set<number>();
   private isRockerGestureFired = false;
   private targetWindow: Window;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private recognizer: any = null;
+  private recognizer: IDollarRecognizer | null = null;
   private lastConfigHash = "";
 
   constructor(win: Window = globalThis as unknown as Window) {
@@ -52,8 +52,9 @@ export class MouseGestureController {
     return Math.max(baseDistance, dynamicDistance, 10);
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private getRecognizer(config: ReturnType<typeof getConfig>): any {
+  private getRecognizer(
+    config: ReturnType<typeof getConfig>,
+  ): IDollarRecognizer {
     const configHash = JSON.stringify(config.actions);
     if (!this.recognizer || this.lastConfigHash !== configHash) {
       this.recognizer = createGestureRecognizer(config.actions);
