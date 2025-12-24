@@ -253,21 +253,19 @@ export function recognize(
     // Validate direction by comparing first and last points
     // This distinguishes opposite gestures like "upRight" vs "downLeft"
     if (!validateDirection(patternDirs, trail)) {
-      // Direction doesn't match - try to find the opposite pattern
+      // Direction doesn't match - try to find another pattern with matching direction
       if (actions) {
-        // Look for another action with opposite direction
+        // Look for another action whose direction matches the user's actual trail
         for (const action of actions) {
           const actionPatternName = action.pattern.join("-");
+          // Skip the already-matched pattern and only accept patterns with matching direction
           if (actionPatternName !== result.Name && validateDirection(action.pattern, trail)) {
-            // Check if this pattern would also match the shape
-            const oppositePoints = convertPatternToPoints(action.pattern);
-            const oppositeResult = recognizer.Recognize(oppositePoints, true);
-            if (oppositeResult.Score >= minScore) {
-              return {
-                patternName: actionPatternName,
-                score: result.Score,
-              };
-            }
+            // Found a pattern with matching direction - return it with the original score
+            // since the shape was already validated by the $1 recognizer
+            return {
+              patternName: actionPatternName,
+              score: result.Score,
+            };
           }
         }
       }
