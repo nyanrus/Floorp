@@ -15,44 +15,6 @@ export function GestureDisplayUI(props: {
   feedbackVisible?: boolean;
   directions?: GestureDirection[];
 }) {
-  const getTrailElement = () => {
-    if (props.trail.length < 2 || !getConfig().showTrail) {
-      return null;
-    }
-
-    const config = getConfig();
-    const trailColor = config.trailColor || "#37ff00";
-    const trailWidth = config.trailWidth || 6;
-
-    const points = props.trail.map((p) => `${p.x},${p.y}`).join(" ");
-
-    return (
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        style={{
-          position: "fixed",
-          top: "0",
-          left: "0",
-          width: "100vw",
-          height: "100vh",
-          "pointer-events": "none",
-          overflow: "visible",
-          "z-index": "999998",
-        }}
-      >
-        <polyline
-          points={points}
-          fill="none"
-          stroke={trailColor}
-          stroke-width={trailWidth}
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          opacity="0.9"
-        />
-      </svg>
-    );
-  };
-
   return (
     <>
       <Show when={props.isVisible}>
@@ -68,7 +30,31 @@ export function GestureDisplayUI(props: {
             overflow: "visible",
           }}
         >
-          {getTrailElement()}
+          <Show when={props.trail.length >= 2 && getConfig().showTrail}>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              style={{
+                position: "fixed",
+                top: "0",
+                left: "0",
+                width: "100vw",
+                height: "100vh",
+                "pointer-events": "none",
+                overflow: "visible",
+                "z-index": "999998",
+              }}
+            >
+              <polyline
+                points={props.trail.map((p) => `${p.x},${p.y}`).join(" ")}
+                fill="none"
+                stroke={getConfig().trailColor || "#37ff00"}
+                stroke-width={getConfig().trailWidth || 6}
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                opacity="0.9"
+              />
+            </svg>
+          </Show>
 
           <Show when={props.actionName && getConfig().showLabel}>
             <div
