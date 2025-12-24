@@ -309,6 +309,137 @@ const MAX_ANGLE_DIFFERENCE = Math.PI / 2;
 const TWO_PI = 2 * Math.PI;
 
 /**
+ * Ratio threshold for determining if a gesture is oscillating along one axis.
+ * If one dimension is more than 3x the other, the gesture is considered oscillating.
+ */
+const OSCILLATION_RATIO = 3;
+
+/**
+ * Result of oscillating line detection.
+ */
+interface OscillationResult {
+  isOscillating: boolean;
+  axis: "vertical" | "horizontal" | null;
+}
+
+/**
+ * Check if the trail is oscillating back-and-forth along one axis.
+ * Returns the axis if oscillating, null otherwise.
+ */
+function isOscillatingLine(trail: { x: number; y: number }[]): OscillationResult {
+  if (trail.length < 2) {
+    return { isOscillating: false, axis: null };
+  }
+
+  const xValues = trail.map((p) => p.x);
+  const yValues = trail.map((p) => p.y);
+
+  const width = Math.max(...xValues) - Math.min(...xValues);
+  const height = Math.max(...yValues) - Math.min(...yValues);
+
+  // One dimension is dominant
+  if (height > OSCILLATION_RATIO * width) {
+    return { isOscillating: true, axis: "vertical" };
+  } else if (width > OSCILLATION_RATIO * height) {
+    return { isOscillating: true, axis: "horizontal" };
+  }
+
+  return { isOscillating: false, axis: null };
+}
+
+/**
+ * Get the first significant movement direction from the trail.
+ * Returns "up", "down", "left", or "right" based on the initial movement.
+ */
+function getFirstMovementDirection(
+  trail: { x: number; y: number }[],
+): "up" | "down" | "left" | "right" | null {
+  if (trail.length < 2) {
+    return null;
+  }
+
+  const start = trail[0];
+
+  // Find the first point that is far enough to determine direction
+  for (let i = 1; i < trail.length; i++) {
+    if (distanceBetween(start, trail[i]) >= MIN_MOVEMENT_DISTANCE) {
+      const dx = trail[i].x - start.x;
+      const dy = trail[i].y - start.y;
+
+      // Determine primary direction based on which axis has more movement
+      if (Math.abs(dy) > Math.abs(dx)) {
+        return dy < 0 ? "up" : "down";
+      } else {
+        return dx > 0 ? "right" : "left";
+      }
+    }
+  }
+
+  // If no point is far enough, use the last point
+  const last = trail[trail.length - 1];
+  if (distanceBetween(start, last) > 0) {
+    const dx = last.x - start.x;
+    const dy = last.y - start.y;
+
+    if (Math.abs(dy) > Math.abs(dx)) {
+      return dy < 0 ? "up" : "down";
+    } else {
+      return dx > 0 ? "right" : "left";
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Check if the trail is a straight line (movement primarily along one axis).
+ * A line is considered straight if one axis dominates the movement.
+ */
+function isStraightLine(trail: { x: number; y: number }[]): boolean {
+  if (trail.length < 2) {
+    return false;
+  }
+
+  const start = trail[0];
+  const end = trail[trail.length - 1];
+
+  const dx = Math.abs(end.x - start.x);
+  const dy = Math.abs(end.y - start.y);
+
+  // The dominant axis should be significantly larger than the other
+  // Using the same ratio as oscillation detection for consistency
+  return dx > OSCILLATION_RATIO * dy || dy > OSCILLATION_RATIO * dx;
+}
+
+/**
+ * Get the direction based on maximum displacement from start to end.
+ * Returns the cardinal direction of the overall movement.
+ */
+function getMaxDisplacementDirection(
+  trail: { x: number; y: number }[],
+): "up" | "down" | "left" | "right" | null {
+  if (trail.length < 2) {
+    return null;
+  }
+
+  const start = trail[0];
+  const end = trail[trail.length - 1];
+
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+
+  if (Math.abs(dx) < MIN_MOVEMENT_DISTANCE && Math.abs(dy) < MIN_MOVEMENT_DISTANCE) {
+    return null;
+  }
+
+  if (Math.abs(dx) > Math.abs(dy)) {
+    return dx > 0 ? "right" : "left";
+  } else {
+    return dy < 0 ? "up" : "down";
+  }
+}
+
+/**
  * Calculate the angular difference between two angles, accounting for wraparound.
  * Returns the smallest angle between the two directions (0 to PI).
  */
@@ -324,14 +455,13 @@ function angleDifference(angle1: number, angle2: number): number {
 /**
  * Recognize a gesture from mouse trail points using the shape database.
  *
- * Uses the $1 Recognizer's Protractor algorithm for fast shape matching.
- * Since $1 normalizes gestures by rotation, opposite gestures (like "left" vs "right"
- * or ["up", "right"] vs ["down", "left"]) produce the same shape signature.
+ * This function uses a multi-step recognition strategy:
+ * 1. Check for oscillating gestures (back-and-forth along one axis like up-down, left-right)
+ * 2. Check for straight lines (single direction gestures like up, down, left, right)
+ * 3. Fall back to $1 Recognizer for complex shapes
  *
- * To distinguish between these, we:
- * 1. Get the shape match from $1 recognizer (returns the shape key)
- * 2. Look up all variants for that shape in the shape database
- * 3. Find the first variant whose first direction matches the trail's first direction
+ * For oscillating and straight line gestures, we use simple geometric analysis
+ * which is more reliable than $1 for these basic patterns.
  *
  * Returns the matched pattern name and confidence score if successful.
  */
@@ -346,6 +476,49 @@ export function recognize(
     return null;
   }
 
+  // Step 1: Check for oscillating gestures (back-and-forth along one axis)
+  const oscillation = isOscillatingLine(trail);
+  if (oscillation.isOscillating) {
+    const firstDir = getFirstMovementDirection(trail);
+    if (firstDir) {
+      let patternName: string;
+      if (oscillation.axis === "vertical") {
+        patternName = firstDir === "up" ? "up-down" : "down-up";
+      } else {
+        patternName = firstDir === "left" ? "left-right" : "right-left";
+      }
+
+      // Check if this pattern exists in the shape database
+      if (shapeDb && !shapeDb.has(patternName)) {
+        // Pattern not configured, fall through to $1 recognizer
+      } else {
+        return {
+          patternName,
+          score: 1.0, // High confidence for geometric detection
+        };
+      }
+    }
+  }
+
+  // Step 2: Check for straight lines (single direction gestures)
+  if (isStraightLine(trail)) {
+    const direction = getMaxDisplacementDirection(trail);
+    if (direction) {
+      const patternName = direction;
+
+      // Check if this pattern exists in the shape database
+      if (shapeDb && !shapeDb.has(patternName)) {
+        // Pattern not configured, fall through to $1 recognizer
+      } else {
+        return {
+          patternName,
+          score: 1.0, // High confidence for geometric detection
+        };
+      }
+    }
+  }
+
+  // Step 3: Complex shapes use $1 Recognizer
   // Convert mouse trail to $1 Recognizer format
   const points = convertTrailToPoints(trail);
 
