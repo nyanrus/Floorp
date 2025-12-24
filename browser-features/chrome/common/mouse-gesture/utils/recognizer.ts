@@ -114,12 +114,3 @@ export function recognizeGesture(
 
   return null;
 }
-
-/**
- * Convert a pattern string (e.g., "up-down") to an array of directions.
- */
-export function patternStringToDirections(
-  patternStr: string,
-): GestureDirection[] {
-  return patternStr.split("-") as GestureDirection[];
-}
