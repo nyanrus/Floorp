@@ -32,7 +32,7 @@ const DIRECTION_VECTORS: Record<GestureDirection, { dx: number; dy: number }> =
 // Create a point using the Point constructor
 function createPoint(x: number, y: number): DollarPoint {
   // The Point function is a constructor that creates {X, Y} objects
-  return (Point as unknown as new (x: number, y: number) => DollarPoint)(x, y);
+  return new (Point as unknown as new (x: number, y: number) => DollarPoint)(x, y);
 }
 
 // Generate points for a gesture pattern
@@ -69,7 +69,7 @@ function generatePatternPoints(
 export function createGestureRecognizer(
   actions: GestureAction[],
 ): IDollarRecognizer {
-  const recognizer = (
+  const recognizer = new (
     DollarRecognizer as unknown as new () => IDollarRecognizer
   )();
 
