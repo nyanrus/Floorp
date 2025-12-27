@@ -385,7 +385,6 @@ function calculatePathLength(trail: { x: number; y: number }[]): number {
   if (trail.length < 2) {
     return 0;
   }
-  
   let totalLength = 0;
   for (let i = 1; i < trail.length; i++) {
     totalLength += distanceBetween(trail[i - 1], trail[i]);
@@ -630,7 +629,6 @@ function isStraightLine(trail: { x: number; y: number }[]): boolean {
   // Complex gestures with loops will have much longer path lengths
   const displacement = Math.sqrt(dx * dx + dy * dy);
   const pathLength = calculatePathLength(trail);
-  
   // If path length is too much longer than displacement, it's not a straight line
   // This catches cases like [down, circle, down] where displacement looks straight
   // but the actual path is much longer due to the circle
