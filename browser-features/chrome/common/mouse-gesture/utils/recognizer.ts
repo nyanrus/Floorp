@@ -383,11 +383,11 @@ function isOscillatingLine(trail: { x: number; y: number }[]): OscillationResult
 
 /**
  * Get the first significant movement direction from the trail.
- * Returns "up", "down", "left", or "right" based on the initial movement.
+ * Returns one of 8 directions based on the initial movement.
  */
 function getFirstMovementDirection(
   trail: { x: number; y: number }[],
-): "up" | "down" | "left" | "right" | null {
+): GestureDirection | null {
   if (trail.length < 2) {
     return null;
   }
@@ -415,20 +415,69 @@ function getFirstMovementDirection(
 }
 
 /**
- * Convert dx/dy deltas to a cardinal direction.
- * Returns "up", "down", "left", or "right" based on which axis dominates.
+ * Angle boundaries for 8-direction detection.
+ * The angle space is divided into 8 sectors of 45 degrees each.
+ * PI/8 = 22.5 degrees, which is the half-width of each sector.
  */
-function deltaToDirection(dx: number, dy: number): "up" | "down" | "left" | "right" {
-  if (Math.abs(dy) > Math.abs(dx)) {
-    return dy < 0 ? "up" : "down";
+const ANGLE_SECTOR_HALF_WIDTH = Math.PI / 8;
+
+/**
+ * Convert dx/dy deltas to one of 8 directions.
+ * Returns one of: "up", "down", "left", "right", "upRight", "upLeft", "downRight", "downLeft"
+ * based on the angle of the movement vector.
+ */
+function deltaToDirection(dx: number, dy: number): GestureDirection {
+  // Use atan2 to get the angle (dy, dx order for screen coordinates where Y increases downward)
+  // Angle ranges: 0 = right, PI/2 = down, ±PI = left, -PI/2 = up
+  const angle = Math.atan2(dy, dx);
+
+  // Normalize angle to [0, 2*PI) range for easier sector calculation
+  const normalizedAngle = angle < 0 ? angle + TWO_PI : angle;
+
+  // Divide into 8 sectors of 45 degrees each
+  // Sector boundaries (in radians, starting from right=0 and going clockwise):
+  // right:      -PI/8 to PI/8       (or 15*PI/8 to PI/8)
+  // downRight:  PI/8 to 3*PI/8
+  // down:       3*PI/8 to 5*PI/8
+  // downLeft:   5*PI/8 to 7*PI/8
+  // left:       7*PI/8 to 9*PI/8
+  // upLeft:     9*PI/8 to 11*PI/8
+  // up:         11*PI/8 to 13*PI/8
+  // upRight:    13*PI/8 to 15*PI/8
+
+  if (normalizedAngle < ANGLE_SECTOR_HALF_WIDTH || normalizedAngle >= TWO_PI - ANGLE_SECTOR_HALF_WIDTH) {
+    return "right";
+  } else if (normalizedAngle < 3 * ANGLE_SECTOR_HALF_WIDTH) {
+    return "downRight";
+  } else if (normalizedAngle < 5 * ANGLE_SECTOR_HALF_WIDTH) {
+    return "down";
+  } else if (normalizedAngle < 7 * ANGLE_SECTOR_HALF_WIDTH) {
+    return "downLeft";
+  } else if (normalizedAngle < 9 * ANGLE_SECTOR_HALF_WIDTH) {
+    return "left";
+  } else if (normalizedAngle < 11 * ANGLE_SECTOR_HALF_WIDTH) {
+    return "upLeft";
+  } else if (normalizedAngle < 13 * ANGLE_SECTOR_HALF_WIDTH) {
+    return "up";
   } else {
-    return dx > 0 ? "right" : "left";
+    return "upRight";
   }
 }
 
 /**
- * Check if the trail is a straight line (movement primarily along one axis).
- * A line is considered straight if one axis dominates the movement.
+ * Ratio threshold for determining if movement is diagonal.
+ * If both dimensions are within this ratio of each other (neither dominates),
+ * the movement is considered diagonal.
+ */
+const DIAGONAL_RATIO_TOLERANCE = 2;
+
+/**
+ * Check if the trail is a straight line (movement in a consistent direction).
+ * A line is considered straight if:
+ * - One axis dominates the movement (cardinal direction), OR
+ * - Both axes are similar in magnitude (diagonal direction)
+ *
+ * The total displacement must also exceed the minimum movement distance.
  */
 function isStraightLine(trail: { x: number; y: number }[]): boolean {
   if (trail.length < 2) {
@@ -441,18 +490,29 @@ function isStraightLine(trail: { x: number; y: number }[]): boolean {
   const dx = Math.abs(end.x - start.x);
   const dy = Math.abs(end.y - start.y);
 
-  // The dominant axis should be significantly larger than the other
-  // Using the same ratio as oscillation detection for consistency
-  return dx > OSCILLATION_RATIO * dy || dy > OSCILLATION_RATIO * dx;
+  // Check for sufficient movement in at least one direction
+  if (dx < MIN_MOVEMENT_DISTANCE && dy < MIN_MOVEMENT_DISTANCE) {
+    return false;
+  }
+
+  // Cardinal directions: one axis dominates significantly
+  const isCardinal = dx > OSCILLATION_RATIO * dy || dy > OSCILLATION_RATIO * dx;
+
+  // Diagonal directions: both axes have similar magnitude
+  // Check if neither axis dominates too much (ratio within tolerance)
+  const isDiagonal = dx > 0 && dy > 0 &&
+    dx <= DIAGONAL_RATIO_TOLERANCE * dy && dy <= DIAGONAL_RATIO_TOLERANCE * dx;
+
+  return isCardinal || isDiagonal;
 }
 
 /**
  * Get the direction based on maximum displacement from start to end.
- * Returns the cardinal direction of the overall movement.
+ * Returns one of 8 directions based on the overall movement vector.
  */
 function getMaxDisplacementDirection(
   trail: { x: number; y: number }[],
-): "up" | "down" | "left" | "right" | null {
+): GestureDirection | null {
   if (trail.length < 2) {
     return null;
   }
@@ -538,9 +598,13 @@ export function recognize(
     if (firstDir) {
       let patternName: string;
       if (oscillation.axis === "vertical") {
-        patternName = firstDir === "up" ? "up-down" : "down-up";
+        // Check if the first direction is predominantly upward
+        const isUpward = firstDir === "up" || firstDir === "upRight" || firstDir === "upLeft";
+        patternName = isUpward ? "up-down" : "down-up";
       } else {
-        patternName = firstDir === "left" ? "left-right" : "right-left";
+        // Check if the first direction is predominantly leftward
+        const isLeftward = firstDir === "left" || firstDir === "upLeft" || firstDir === "downLeft";
+        patternName = isLeftward ? "left-right" : "right-left";
       }
 
       if (isPatternConfigured(patternName, shapeDb)) {
