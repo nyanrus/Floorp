@@ -145,6 +145,10 @@ function getPatternFirstDirection(pattern: GestureDirection[]): GestureDirection
  * - Single-direction gestures (length === 1): e.g., ["left"], ["up"], ["right"]
  * - Two-direction oscillating gestures (length === 2): e.g., ["up", "down"], ["left", "right"]
  * 
+ * Note: Diagonal oscillations like ["upLeft", "downRight"] are NOT considered simple
+ * because they don't oscillate along a single axis. They're more like diagonal lines
+ * and should be handled by $1 Recognizer.
+ * 
  * These patterns are detected reliably by geometric analysis and should not be
  * matched by the $1 Recognizer to prevent complex gestures from incorrectly
  * matching simple patterns.
@@ -250,6 +254,8 @@ export function createRecognizer(actions: GestureAction[]): RecognizerWithShapeD
 
       if (!foundExistingShape) {
         // New unique shape - register to $1 and create new entry
+        // Note: Simple patterns are added to shape database for configuration lookup
+        // but are intentionally excluded from $1 Recognizer templates (see below)
         shapeDb.set(patternName, {
           shapeKey: patternName,
           variants: [variant],
