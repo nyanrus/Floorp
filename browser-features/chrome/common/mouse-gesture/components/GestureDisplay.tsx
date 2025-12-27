@@ -89,13 +89,8 @@ export class GestureDisplay {
       existingContainer.parentNode.removeChild(existingContainer);
     }
 
-    // Re-add styles if they were somehow removed
-    const existingStyle = this.targetWindow.document.getElementById(
-      "mouse-gesture-global-styles",
-    );
-    if (!existingStyle) {
-      this.addGlobalStyles();
-    }
+    // Ensure styles exist (addGlobalStyles already checks for duplicates)
+    this.addGlobalStyles();
 
     this.mountContainer = this.targetWindow.document.createElement("div");
     this.mountContainer.id = "mouse-gesture-display-container";
