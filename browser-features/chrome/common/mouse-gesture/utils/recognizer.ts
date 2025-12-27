@@ -600,12 +600,29 @@ const MAX_ANGULAR_DEVIATION = Math.PI / 6;
 const MIN_SEGMENT_LENGTH_FOR_ANGLE_CHECK = 30;
 
 /**
+ * Calculate the angular difference between two angles, handling wraparound.
+ * Returns a value in the range [0, PI].
+ * 
+ * @param angle1 - First angle in radians
+ * @param angle2 - Second angle in radians
+ * @returns The absolute angular difference in radians, always in [0, PI]
+ */
+function angularDifference(angle1: number, angle2: number): number {
+  let diff = Math.abs(angle1 - angle2);
+  if (diff > Math.PI) {
+    diff = TWO_PI - diff;
+  }
+  return diff;
+}
+
+/**
  * Check if the trail has significant direction changes that would indicate
  * a multi-segment gesture rather than a straight line.
  * 
  * This function samples the trail at intervals and checks if the direction
  * changes significantly between segments.
  * 
+ * @param trail - Array of points representing the mouse trail
  * @returns true if a significant direction change is detected
  */
 function hasSignificantDirectionChange(trail: { x: number; y: number }[]): boolean {
@@ -622,6 +639,7 @@ function hasSignificantDirectionChange(trail: { x: number; y: number }[]): boole
     }
   }
   
+  // Need at least one point after firstSegmentEnd to form a second segment
   if (firstSegmentEnd === -1 || firstSegmentEnd >= trail.length - 1) {
     return false;
   }
@@ -653,14 +671,8 @@ function hasSignificantDirectionChange(trail: { x: number; y: number }[]): boole
     const segmentDy = trail[nextSegmentEnd].y - trail[currentPos].y;
     const segmentAngle = Math.atan2(segmentDy, segmentDx);
 
-    // Calculate angular difference (handling wraparound)
-    let angleDiff = Math.abs(segmentAngle - initialAngle);
-    if (angleDiff > Math.PI) {
-      angleDiff = TWO_PI - angleDiff;
-    }
-
     // If the angle changed significantly, this is not a straight line
-    if (angleDiff > MAX_ANGULAR_DEVIATION) {
+    if (angularDifference(segmentAngle, initialAngle) > MAX_ANGULAR_DEVIATION) {
       return true;
     }
 
