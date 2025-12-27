@@ -582,7 +582,10 @@ function isPatternConfigured(patternName: string, shapeDb?: ShapeDatabase): bool
  * 3. Fall back to $1 Recognizer for complex shapes
  *
  * For oscillating and straight line gestures, we use simple geometric analysis
- * which is more reliable than $1 for these basic patterns.
+ * which is more reliable than $1 for these basic patterns. If a simple pattern
+ * is detected geometrically but not configured, we return null rather than
+ * falling through to $1 Recognizer. This prevents simple gestures from
+ * incorrectly matching against complex shape templates.
  *
  * Returns the matched pattern name and confidence score if successful.
  */
@@ -619,7 +622,9 @@ export function recognize(
           score: GEOMETRIC_DETECTION_CONFIDENCE,
         };
       }
-      // Pattern not configured, fall through to straight line check
+      // Oscillating pattern detected but not configured - do not fall through to $1 Recognizer
+      // as these simple patterns should not match complex shapes
+      return null;
     }
   }
 
@@ -635,7 +640,9 @@ export function recognize(
           score: GEOMETRIC_DETECTION_CONFIDENCE,
         };
       }
-      // Pattern not configured, fall through to $1 recognizer
+      // Straight line pattern detected but not configured - do not fall through to $1 Recognizer
+      // as these simple patterns should not match complex shapes
+      return null;
     }
   }
 
