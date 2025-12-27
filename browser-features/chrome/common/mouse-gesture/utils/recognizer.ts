@@ -318,14 +318,14 @@ function distanceBetween(
 }
 
 /**
- * Get the first significant movement direction from a mouse trail.
- * Calculates the mean direction from points between DIRECTION_SAMPLE_START
- * and DIRECTION_SAMPLE_END to filter out initial hand jitter and get
- * a more stable, intuitive direction.
- * Uses the shared angleToDirection() function for direction detection.
- * Returns one of 8 directions, or null if no significant movement is found.
+ * Calculate mean direction from trail points within the sampling range.
+ * Collects points between DIRECTION_SAMPLE_START and DIRECTION_SAMPLE_END
+ * and returns the mean displacement direction.
+ * 
+ * @param trail - Array of points representing the mouse trail
+ * @returns Direction based on mean displacement, or null if no valid direction found
  */
-function getTrailFirstDirection(trail: { x: number; y: number }[]): GestureDirection | null {
+function calculateMeanDirection(trail: { x: number; y: number }[]): GestureDirection | null {
   if (trail.length < 2) {
     return null;
   }
@@ -333,14 +333,14 @@ function getTrailFirstDirection(trail: { x: number; y: number }[]): GestureDirec
   const start = trail[0];
 
   // Find points in the sampling range (between DIRECTION_SAMPLE_START and DIRECTION_SAMPLE_END)
-  const sampledPoints: { x: number; y: number; distance: number }[] = [];
+  const sampledPoints: { x: number; y: number }[] = [];
   
   for (let i = 1; i < trail.length; i++) {
     const distance = distanceBetween(start, trail[i]);
     
     // Collect points within the sampling range
     if (distance >= DIRECTION_SAMPLE_START && distance <= DIRECTION_SAMPLE_END) {
-      sampledPoints.push({ x: trail[i].x, y: trail[i].y, distance });
+      sampledPoints.push({ x: trail[i].x, y: trail[i].y });
     }
     
     // Stop if we've gone past the sampling range
@@ -385,6 +385,18 @@ function getTrailFirstDirection(trail: { x: number; y: number }[]): GestureDirec
   }
 
   return null;
+}
+
+/**
+ * Get the first significant movement direction from a mouse trail.
+ * Calculates the mean direction from points between DIRECTION_SAMPLE_START
+ * and DIRECTION_SAMPLE_END to filter out initial hand jitter and get
+ * a more stable, intuitive direction.
+ * Uses the shared angleToDirection() function for direction detection.
+ * Returns one of 8 directions, or null if no significant movement is found.
+ */
+function getTrailFirstDirection(trail: { x: number; y: number }[]): GestureDirection | null {
+  return calculateMeanDirection(trail);
 }
 
 /**
@@ -517,65 +529,7 @@ function isOscillatingLine(trail: { x: number; y: number }[]): OscillationResult
 function getFirstMovementDirection(
   trail: { x: number; y: number }[],
 ): GestureDirection | null {
-  if (trail.length < 2) {
-    return null;
-  }
-
-  const start = trail[0];
-
-  // Find points in the sampling range (between DIRECTION_SAMPLE_START and DIRECTION_SAMPLE_END)
-  const sampledPoints: { x: number; y: number; distance: number }[] = [];
-  
-  for (let i = 1; i < trail.length; i++) {
-    const distance = distanceBetween(start, trail[i]);
-    
-    // Collect points within the sampling range
-    if (distance >= DIRECTION_SAMPLE_START && distance <= DIRECTION_SAMPLE_END) {
-      sampledPoints.push({ x: trail[i].x, y: trail[i].y, distance });
-    }
-    
-    // Stop if we've gone past the sampling range
-    if (distance > DIRECTION_SAMPLE_END) {
-      break;
-    }
-  }
-
-  // If we have points in the sampling range, calculate mean direction
-  if (sampledPoints.length > 0) {
-    // Calculate mean displacement
-    let sumDx = 0;
-    let sumDy = 0;
-    
-    for (const point of sampledPoints) {
-      sumDx += point.x - start.x;
-      sumDy += point.y - start.y;
-    }
-    
-    const meanDx = sumDx / sampledPoints.length;
-    const meanDy = sumDy / sampledPoints.length;
-    
-    return deltaToDirection(meanDx, meanDy);
-  }
-
-  // Fallback: if trail is shorter than sampling range, use the farthest point
-  // that's at least MIN_MOVEMENT_DISTANCE away
-  for (let i = trail.length - 1; i >= 1; i--) {
-    if (distanceBetween(start, trail[i]) >= MIN_MOVEMENT_DISTANCE) {
-      const dx = trail[i].x - start.x;
-      const dy = trail[i].y - start.y;
-      return deltaToDirection(dx, dy);
-    }
-  }
-
-  // Last resort: use the last point if there's any movement
-  const last = trail[trail.length - 1];
-  if (distanceBetween(start, last) > 0) {
-    const dx = last.x - start.x;
-    const dy = last.y - start.y;
-    return deltaToDirection(dx, dy);
-  }
-
-  return null;
+  return calculateMeanDirection(trail);
 }
 
 /**
