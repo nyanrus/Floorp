@@ -370,8 +370,36 @@ interface OscillationResult {
 }
 
 /**
+ * Maximum ratio of path length to expected oscillation length.
+ * For a simple up-down or left-right oscillation, the path length should be
+ * approximately 2x the dominant axis (go there and back).
+ * Allow some tolerance for natural hand movement variations.
+ * A value of 1.5 means the path can be up to 50% longer than expected.
+ */
+const OSCILLATION_PATH_RATIO_THRESHOLD = 1.5;
+
+/**
+ * Calculate the total path length of a trail (sum of distances between consecutive points).
+ */
+function calculatePathLength(trail: { x: number; y: number }[]): number {
+  if (trail.length < 2) {
+    return 0;
+  }
+  let totalLength = 0;
+  for (let i = 1; i < trail.length; i++) {
+    totalLength += distanceBetween(trail[i - 1], trail[i]);
+  }
+  return totalLength;
+}
+
+/**
  * Check if the trail is oscillating back-and-forth along one axis.
  * Returns the axis if oscillating, null otherwise.
+ * 
+ * A true oscillating gesture:
+ * - Has one dominant axis (vertical or horizontal)
+ * - Starts and ends near the same position on the dominant axis
+ * - Has a path length close to 2x the dominant axis size (simple back-and-forth)
  */
 function isOscillatingLine(trail: { x: number; y: number }[]): OscillationResult {
   if (trail.length < 2) {
@@ -400,16 +428,28 @@ function isOscillatingLine(trail: { x: number; y: number }[]): OscillationResult
   const startToEndDx = Math.abs(end.x - start.x);
   const startToEndDy = Math.abs(end.y - start.y);
 
+  // Calculate path length for complexity check
+  const pathLength = calculatePathLength(trail);
+
   if (hasVerticalDominance) {
     // For vertical oscillation, the start-to-end vertical displacement should be
     // significantly less than the total vertical range (indicating back-and-forth movement)
     if (startToEndDy < height * OSCILLATION_DISPLACEMENT_THRESHOLD) {
-      return { isOscillating: true, axis: "vertical" };
+      // Check path complexity: a simple up-down should have path length ~2x height
+      // If path is too long, it's likely a complex gesture that happens to end near start
+      const expectedPathLength = 2 * height;
+      if (pathLength <= expectedPathLength * OSCILLATION_PATH_RATIO_THRESHOLD) {
+        return { isOscillating: true, axis: "vertical" };
+      }
     }
   } else if (hasHorizontalDominance) {
     // For horizontal oscillation, same logic applies
     if (startToEndDx < width * OSCILLATION_DISPLACEMENT_THRESHOLD) {
-      return { isOscillating: true, axis: "horizontal" };
+      // Check path complexity: a simple left-right should have path length ~2x width
+      const expectedPathLength = 2 * width;
+      if (pathLength <= expectedPathLength * OSCILLATION_PATH_RATIO_THRESHOLD) {
+        return { isOscillating: true, axis: "horizontal" };
+      }
     }
   }
 
@@ -539,10 +579,19 @@ export function deltaToDirection(dx: number, dy: number): GestureDirection {
 const DIAGONAL_RATIO_TOLERANCE = 2;
 
 /**
+ * Maximum ratio of path length to displacement for a gesture to be considered a straight line.
+ * If the path length is more than this factor times the displacement, the gesture
+ * contains too much deviation (loops, curves, etc.) to be considered straight.
+ * A value of 1.5 means the path can be up to 50% longer than the direct distance.
+ */
+const LINEARITY_RATIO_THRESHOLD = 1.5;
+
+/**
  * Check if the trail is a straight line (movement in a consistent direction).
  * A line is considered straight if:
  * - One axis dominates the movement (cardinal direction), OR
  * - Both axes are similar in magnitude (diagonal direction)
+ * - The path length is close to the displacement (no loops or major deviations)
  *
  * The total displacement must also exceed the minimum movement distance.
  */
@@ -570,7 +619,24 @@ function isStraightLine(trail: { x: number; y: number }[]): boolean {
   const isDiagonal = dx > 0 && dy > 0 &&
     dx <= DIAGONAL_RATIO_TOLERANCE * dy && dy <= DIAGONAL_RATIO_TOLERANCE * dx;
 
-  return isCardinal || isDiagonal;
+  // Check direction type (must be cardinal or diagonal)
+  if (!isCardinal && !isDiagonal) {
+    return false;
+  }
+
+  // Linearity check: compare path length to displacement
+  // A truly straight line should have path length very close to displacement
+  // Complex gestures with loops will have much longer path lengths
+  const displacement = Math.sqrt(dx * dx + dy * dy);
+  const pathLength = calculatePathLength(trail);
+  // If path length is too much longer than displacement, it's not a straight line
+  // This catches cases like [down, circle, down] where displacement looks straight
+  // but the actual path is much longer due to the circle
+  if (pathLength > displacement * LINEARITY_RATIO_THRESHOLD) {
+    return false;
+  }
+
+  return true;
 }
 
 /**
