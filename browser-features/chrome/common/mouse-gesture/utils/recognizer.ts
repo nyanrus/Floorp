@@ -374,9 +374,10 @@ interface OscillationResult {
  * For a simple up-down or left-right oscillation, the path length should be
  * approximately 2x the dominant axis (go there and back).
  * Allow some tolerance for natural hand movement variations.
- * A value of 1.5 means the path can be up to 50% longer than expected.
+ * A value of 2.5 means the path can be up to 150% longer than expected,
+ * which accommodates carat-shaped gestures (e.g., ^ for up-down or > for left-right).
  */
-const OSCILLATION_PATH_RATIO_THRESHOLD = 1.5;
+const OSCILLATION_PATH_RATIO_THRESHOLD = 2.5;
 
 /**
  * Calculate the total path length of a trail (sum of distances between consecutive points).
