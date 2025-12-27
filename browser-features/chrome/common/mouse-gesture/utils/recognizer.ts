@@ -38,13 +38,13 @@ const DIRECTION_VECTORS: Record<GestureDirection, { dx: number; dy: number }> = 
 };
 
 /**
- * Shape variant entry containing pattern name and its first direction angle.
+ * Shape variant entry containing pattern name and its first direction.
  * Used to store multiple patterns that share the same shape signature.
  */
 interface ShapeVariant {
   patternName: string;
   pattern: GestureDirection[];
-  firstAngle: number | null;
+  firstDirection: GestureDirection | null;
 }
 
 /**
@@ -128,22 +128,15 @@ export function convertTrailToPoints(
 const SEGMENT_LENGTHS = [50, 100, 200, 400, 800];
 
 /**
- * Calculate the angle of the first direction in a pattern using arctan.
- * Returns the angle in radians, where 0 = right, PI/2 = down, ±PI = left, -PI/2 = up.
- * This helps distinguish opposite gestures like "up-down" vs "down-up" by
- * comparing first movement direction.
+ * Get the first direction in a pattern.
+ * Returns the first direction directly since patterns are already stored as GestureDirection arrays.
+ * This is used to distinguish opposite gestures like "up-down" vs "down-up".
  */
-function getPatternFirstAngle(pattern: GestureDirection[]): number | null {
+function getPatternFirstDirection(pattern: GestureDirection[]): GestureDirection | null {
   if (pattern.length === 0) {
     return null;
   }
-
-  // Get the first direction's vector
-  const firstDirection = pattern[0];
-  const vector = DIRECTION_VECTORS[firstDirection];
-
-  // Use atan2 to get the angle (dy, dx order for screen coordinates where Y increases downward)
-  return Math.atan2(vector.dy, vector.dx);
+  return pattern[0];
 }
 
 /**
@@ -191,13 +184,13 @@ export function createRecognizer(actions: GestureAction[]): RecognizerWithShapeD
       }
       processedPatterns.add(patternName);
 
-      const firstAngle = getPatternFirstAngle(action.pattern);
+      const firstDirection = getPatternFirstDirection(action.pattern);
 
       // Create the shape variant entry
       const variant: ShapeVariant = {
         patternName,
         pattern: action.pattern,
-        firstAngle,
+        firstDirection,
       };
 
       // Check if this pattern's shape matches any existing shape in the database
@@ -264,11 +257,12 @@ function distanceBetween(
 }
 
 /**
- * Calculate the angle of the first significant movement from a mouse trail using arctan.
+ * Get the first significant movement direction from a mouse trail.
  * Finds the first point that is far enough from the start to determine direction.
- * Returns the angle in radians, or null if no significant movement is found.
+ * Uses the shared angleToDirection() function for direction detection.
+ * Returns one of 8 directions, or null if no significant movement is found.
  */
-function getTrailFirstAngle(trail: { x: number; y: number }[]): number | null {
+function getTrailFirstDirection(trail: { x: number; y: number }[]): GestureDirection | null {
   if (trail.length < 2) {
     return null;
   }
@@ -280,8 +274,7 @@ function getTrailFirstAngle(trail: { x: number; y: number }[]): number | null {
     if (distanceBetween(start, trail[i]) >= MIN_MOVEMENT_DISTANCE) {
       const dx = trail[i].x - start.x;
       const dy = trail[i].y - start.y;
-      // Use atan2 to get the angle (dy, dx order for screen coordinates)
-      return Math.atan2(dy, dx);
+      return deltaToDirection(dx, dy);
     }
   }
 
@@ -290,17 +283,11 @@ function getTrailFirstAngle(trail: { x: number; y: number }[]): number | null {
   if (distanceBetween(start, last) > 0) {
     const dx = last.x - start.x;
     const dy = last.y - start.y;
-    return Math.atan2(dy, dx);
+    return deltaToDirection(dx, dy);
   }
 
   return null;
 }
-
-/**
- * Maximum allowed angle difference (in radians) for direction validation.
- * PI/8 (12.5 degrees) allows for some tolerance
- */
-const MAX_ANGLE_DIFFERENCE = Math.PI / 8;
 
 /**
  * Full circle in radians, used for angle wraparound calculations.
@@ -422,15 +409,26 @@ function getFirstMovementDirection(
 const ANGLE_SECTOR_HALF_WIDTH = Math.PI / 8;
 
 /**
- * Convert dx/dy deltas to one of 8 directions.
- * Returns one of: "up", "down", "left", "right", "upRight", "upLeft", "downRight", "downLeft"
- * based on the angle of the movement vector.
+ * Convert an angle (in radians) to one of 8 directions.
+ *
+ * This function is the core direction detection logic shared by:
+ * - Simple line recognition (via deltaToDirection)
+ * - Complex shape direction matching (via getTrailFirstDirection)
+ *
+ * @param angle - The angle in radians, where:
+ *   - 0 = right
+ *   - PI/2 = down
+ *   - ±PI = left
+ *   - -PI/2 = up
+ *   (using screen coordinates where Y increases downward)
+ * @returns One of 8 directions: "up", "down", "left", "right", "upRight", "upLeft", "downRight", "downLeft"
+ *
+ * @example
+ * angleToDirection(0) // returns "right"
+ * angleToDirection(Math.PI / 4) // returns "downRight"
+ * angleToDirection(-Math.PI / 2) // returns "up"
  */
-function deltaToDirection(dx: number, dy: number): GestureDirection {
-  // Use atan2 to get the angle (dy, dx order for screen coordinates where Y increases downward)
-  // Angle ranges: 0 = right, PI/2 = down, ±PI = left, -PI/2 = up
-  const angle = Math.atan2(dy, dx);
-
+export function angleToDirection(angle: number): GestureDirection {
   // Normalize angle to [0, 2*PI) range for easier sector calculation
   const normalizedAngle = angle < 0 ? angle + TWO_PI : angle;
 
@@ -462,6 +460,27 @@ function deltaToDirection(dx: number, dy: number): GestureDirection {
   } else {
     return "upRight";
   }
+}
+
+/**
+ * Convert dx/dy deltas to one of 8 directions.
+ *
+ * Uses the shared angleToDirection() function internally.
+ *
+ * @param dx - Horizontal displacement in pixels (positive = right, negative = left)
+ * @param dy - Vertical displacement in pixels (positive = down, negative = up)
+ *             Note: Uses screen coordinates where Y increases downward.
+ * @returns One of 8 directions: "up", "down", "left", "right", "upRight", "upLeft", "downRight", "downLeft"
+ *
+ * @example
+ * deltaToDirection(100, 0) // returns "right"
+ * deltaToDirection(100, 100) // returns "downRight"
+ * deltaToDirection(0, -100) // returns "up"
+ */
+export function deltaToDirection(dx: number, dy: number): GestureDirection {
+  // Use atan2 to get the angle (dy, dx order for screen coordinates where Y increases downward)
+  const angle = Math.atan2(dy, dx);
+  return angleToDirection(angle);
 }
 
 /**
@@ -555,19 +574,6 @@ function isPatternConfigured(patternName: string, shapeDb?: ShapeDatabase): bool
 }
 
 /**
- * Calculate the angular difference between two angles, accounting for wraparound.
- * Returns the smallest angle between the two directions (0 to PI).
- */
-function angleDifference(angle1: number, angle2: number): number {
-  let diff = Math.abs(angle1 - angle2);
-  // Normalize to [0, PI] range since we want the smallest angle between directions
-  if (diff > Math.PI) {
-    diff = TWO_PI - diff;
-  }
-  return diff;
-}
-
-/**
  * Recognize a gesture from mouse trail points using the shape database.
  *
  * This function uses a multi-step recognition strategy:
@@ -649,22 +655,21 @@ export function recognize(
     if (shapeDb) {
       const shapeEntry = shapeDb.get(shapeKey);
       if (shapeEntry) {
-        // Get the trail's first direction angle
-        const trailAngle = getTrailFirstAngle(trail);
+        // Get the trail's first direction using shared direction detection logic
+        const trailDirection = getTrailFirstDirection(trail);
 
         // Find the first variant that matches the trail's direction
         for (const variant of shapeEntry.variants) {
-          // If either angle couldn't be determined, use this variant
-          if (trailAngle === null || variant.firstAngle === null) {
+          // If either direction couldn't be determined, use this variant
+          if (trailDirection === null || variant.firstDirection === null) {
             return {
               patternName: variant.patternName,
               score: result.Score,
             };
           }
 
-          // Compare angles - they should be within 90 degrees of each other
-          const diff = angleDifference(variant.firstAngle, trailAngle);
-          if (diff <= MAX_ANGLE_DIFFERENCE) {
+          // Compare directions directly using the shared 8-direction detection
+          if (trailDirection === variant.firstDirection) {
             return {
               patternName: variant.patternName,
               score: result.Score,
