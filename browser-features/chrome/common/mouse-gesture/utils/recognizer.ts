@@ -140,6 +140,41 @@ function getPatternFirstDirection(pattern: GestureDirection[]): GestureDirection
 }
 
 /**
+ * Check if a pattern is a simple geometric pattern that should not be registered in $1 Recognizer.
+ * Simple patterns include:
+ * - Single-direction gestures (length === 1): e.g., ["left"], ["up"], ["right"]
+ * - Two-direction oscillating gestures (length === 2): e.g., ["up", "down"], ["left", "right"]
+ * 
+ * These patterns are detected reliably by geometric analysis and should not be
+ * matched by the $1 Recognizer to prevent complex gestures from incorrectly
+ * matching simple patterns.
+ */
+function isSimplePattern(pattern: GestureDirection[]): boolean {
+  // Single direction gestures
+  if (pattern.length === 1) {
+    return true;
+  }
+  
+  // Two-direction oscillating gestures (back-and-forth)
+  if (pattern.length === 2) {
+    const first = pattern[0];
+    const second = pattern[1];
+    
+    // Check for vertical oscillation (up-down or down-up)
+    if ((first === "up" && second === "down") || (first === "down" && second === "up")) {
+      return true;
+    }
+    
+    // Check for horizontal oscillation (left-right or right-left)
+    if ((first === "left" && second === "right") || (first === "right" && second === "left")) {
+      return true;
+    }
+  }
+  
+  return false;
+}
+
+/**
  * Result of creating a recognizer, including the shape database.
  */
 export interface RecognizerWithShapeDb {
@@ -151,8 +186,10 @@ export interface RecognizerWithShapeDb {
  * Create a $1 Recognizer instance configured with gesture patterns.
  *
  * Takes the gesture actions from configuration and adds them as templates
- * to the recognizer. Only unique shapes are registered to $1; patterns that
- * produce the same shape signature are stored as variants in the shape database.
+ * to the recognizer. Only complex patterns are registered in $1; simple patterns
+ * (single direction like ["left"] or oscillating like ["up", "down"]) are stored
+ * in the shape database but NOT registered in $1 Recognizer to prevent complex
+ * gestures from incorrectly matching simple patterns.
  *
  * The first pattern encountered for each unique shape becomes the representative
  * template. Subsequent patterns with the same shape are added as variants,
@@ -218,10 +255,15 @@ export function createRecognizer(actions: GestureAction[]): RecognizerWithShapeD
           variants: [variant],
         });
 
-        // Add templates at multiple sizes for better recognition
-        for (const segmentLength of SEGMENT_LENGTHS) {
-          const points = convertPatternToPoints(action.pattern, segmentLength);
-          recognizer.AddGesture(patternName, points);
+        // Only register complex patterns in $1 Recognizer
+        // Simple patterns (single direction or oscillating) should not be in $1
+        // to prevent complex gestures from incorrectly matching them
+        if (!isSimplePattern(action.pattern)) {
+          // Add templates at multiple sizes for better recognition
+          for (const segmentLength of SEGMENT_LENGTHS) {
+            const points = convertPatternToPoints(action.pattern, segmentLength);
+            recognizer.AddGesture(patternName, points);
+          }
         }
       }
     }
