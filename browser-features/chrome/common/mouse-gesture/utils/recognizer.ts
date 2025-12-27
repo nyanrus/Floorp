@@ -670,9 +670,6 @@ export function recognize(
           score: GEOMETRIC_DETECTION_CONFIDENCE,
         };
       }
-      // Oscillating pattern detected but not configured - do not fall through to $1 Recognizer
-      // as these simple patterns should not match complex shapes
-      return null;
     }
   }
 
@@ -688,9 +685,6 @@ export function recognize(
           score: GEOMETRIC_DETECTION_CONFIDENCE,
         };
       }
-      // Straight line pattern detected but not configured - do not fall through to $1 Recognizer
-      // as these simple patterns should not match complex shapes
-      return null;
     }
   }
 
