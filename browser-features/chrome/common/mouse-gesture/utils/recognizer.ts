@@ -588,11 +588,107 @@ const DIAGONAL_RATIO_TOLERANCE = 2;
 const LINEARITY_RATIO_THRESHOLD = 1.5;
 
 /**
+ * Maximum angular deviation (in radians) allowed for a gesture to be considered a straight line.
+ * This is roughly 30 degrees - direction changes greater than this indicate a multi-segment gesture.
+ */
+const MAX_ANGULAR_DEVIATION = Math.PI / 6;
+
+/**
+ * Minimum segment length for angular deviation check.
+ * Segments shorter than this are ignored to filter out noise from small mouse movements.
+ */
+const MIN_SEGMENT_LENGTH_FOR_ANGLE_CHECK = 30;
+
+/**
+ * Calculate the angular difference between two angles, handling wraparound.
+ * Returns a value in the range [0, PI].
+ * 
+ * @param angle1 - First angle in radians
+ * @param angle2 - Second angle in radians
+ * @returns The absolute angular difference in radians, always in [0, PI]
+ */
+function angularDifference(angle1: number, angle2: number): number {
+  let diff = Math.abs(angle1 - angle2);
+  if (diff > Math.PI) {
+    diff = TWO_PI - diff;
+  }
+  return diff;
+}
+
+/**
+ * Check if the trail has significant direction changes that would indicate
+ * a multi-segment gesture rather than a straight line.
+ * 
+ * This function samples the trail at intervals and checks if the direction
+ * changes significantly between segments.
+ * 
+ * @param trail - Array of points representing the mouse trail
+ * @returns true if a significant direction change is detected
+ */
+function hasSignificantDirectionChange(trail: { x: number; y: number }[]): boolean {
+  if (trail.length < 3) {
+    return false;
+  }
+
+  // Find the first significant movement from the start
+  let firstSegmentEnd = -1;
+  for (let i = 1; i < trail.length; i++) {
+    if (distanceBetween(trail[0], trail[i]) >= MIN_SEGMENT_LENGTH_FOR_ANGLE_CHECK) {
+      firstSegmentEnd = i;
+      break;
+    }
+  }
+  
+  // Need at least one point after firstSegmentEnd to form a second segment
+  if (firstSegmentEnd === -1 || firstSegmentEnd >= trail.length - 1) {
+    return false;
+  }
+
+  // Calculate the initial direction angle
+  const initialDx = trail[firstSegmentEnd].x - trail[0].x;
+  const initialDy = trail[firstSegmentEnd].y - trail[0].y;
+  const initialAngle = Math.atan2(initialDy, initialDx);
+
+  // Check remaining segments for direction changes
+  let currentPos = firstSegmentEnd;
+  
+  while (currentPos < trail.length - 1) {
+    // Find the next significant movement
+    let nextSegmentEnd = -1;
+    for (let i = currentPos + 1; i < trail.length; i++) {
+      if (distanceBetween(trail[currentPos], trail[i]) >= MIN_SEGMENT_LENGTH_FOR_ANGLE_CHECK) {
+        nextSegmentEnd = i;
+        break;
+      }
+    }
+    
+    if (nextSegmentEnd === -1) {
+      break;
+    }
+
+    // Calculate the direction angle of this segment
+    const segmentDx = trail[nextSegmentEnd].x - trail[currentPos].x;
+    const segmentDy = trail[nextSegmentEnd].y - trail[currentPos].y;
+    const segmentAngle = Math.atan2(segmentDy, segmentDx);
+
+    // If the angle changed significantly, this is not a straight line
+    if (angularDifference(segmentAngle, initialAngle) > MAX_ANGULAR_DEVIATION) {
+      return true;
+    }
+
+    currentPos = nextSegmentEnd;
+  }
+
+  return false;
+}
+
+/**
  * Check if the trail is a straight line (movement in a consistent direction).
  * A line is considered straight if:
  * - One axis dominates the movement (cardinal direction), OR
  * - Both axes are similar in magnitude (diagonal direction)
  * - The path length is close to the displacement (no loops or major deviations)
+ * - There are no significant direction changes during the gesture
  *
  * The total displacement must also exceed the minimum movement distance.
  */
@@ -634,6 +730,13 @@ function isStraightLine(trail: { x: number; y: number }[]): boolean {
   // This catches cases like [down, circle, down] where displacement looks straight
   // but the actual path is much longer due to the circle
   if (pathLength > displacement * LINEARITY_RATIO_THRESHOLD) {
+    return false;
+  }
+
+  // Check for significant direction changes during the gesture
+  // This catches cases like [upRight, right] where the overall displacement looks diagonal
+  // but the gesture has a clear direction change
+  if (hasSignificantDirectionChange(trail)) {
     return false;
   }
 
