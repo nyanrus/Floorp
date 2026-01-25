@@ -106,12 +106,6 @@
   "statusbar": {
     "toggle": "ステータスバー{{mark}}"
   },
-  "splitview": {
-    "tab-context": {
-      "temporarily-unavailable": "分割ビューは一時的に利用できません",
-      "details": "詳細情報"
-    }
-  },
   "ssb": {
     "menu": {
       "webapps": "ウェブアプリ",
@@ -369,6 +363,11 @@
       "defaultExtensionName": "この拡張機能",
       "chromeBadge": "[Chrome]",
       "compatibilityWarning": "この Chrome 拡張機能は Firefox 互換形式に変換されています。一部の機能は正しく動作しない可能性があります。"
+    }
+  },
+  "hub": {
+    "menu": {
+      "title": "Floorp Hub"
     }
   }
 }

@@ -282,8 +282,8 @@
         "openProfileSaveLocation": "Abrir Local para Salvar Perfil",
         "mozillaAccountSyncSettings": "Configurações de sincronização da conta Mozilla",
         "syncedTo": "Sincronizado com {{email}}",
-        "sync{{productName}}NotesToMozillaAccount": "Sincronizar Notas {{productName}} com a conta Mozilla (experimental)",
-        "{{productName}}FeatureSyncSettings": "Configurações de sincronização de recursos {{productName}}",
+        "syncNotesToMozillaAccount": "Sincronizar Notas {{productName}} com a conta Mozilla (experimental)",
+        "featureSyncSettings": "Configurações de sincronização de recursos {{productName}}",
         "manageMozillaAccount": "Gerenciar conta Mozilla",
         "manageFirefoxFeatureSync": "Gerenciar sincronização de recursos do Firefox",
         "aboutMozillaAccount": "Sobre a conta Mozilla",
@@ -337,10 +337,29 @@
             "confirmDisable": "Tem certeza de que deseja desativar este teste? Você pode reativá-lo mais tarde.",
             "confirmEnable": "Tem certeza de que deseja reativar este teste?",
             "lastUpdated": "Última atualização:"
+        },
+        "availableFlascos": {
+            "title": "Testes disponíveis",
+            "description": "Todos os testes disponíveis para sua versão do {{productName}}. Alguns podem estar indisponíveis devido a limites de implementação.",
+            "noExperiments": "Sem testes disponíveis.",
+            "rollout": "Implementação: {{percentage}}%",
+            "forceEnroll": "Inscrever-se",
+            "forceEnrolled": "Inscrito",
+            "removeForceEnrollment": "Reverter para o padrão",
+            "confirmForceEnroll": "Tem certeza de que deseja se inscrever neste teste? Isso substituirá as configurações de lançamento.",
+            "confirmRemoveForceEnrollment": "Remover o registro e retornar ao modelo normal de distribuição?",
+            "status": {
+                "enrolled": "Inscrito",
+                "not_in_rollout": "Não está implementado",
+                "force_enrolled": "Inscrito",
+                "disabled": "Desativado",
+                "control": "Controle"
+            }
         }
     },
     "common": {
-        "loading": "Carregando..."
+        "loading": "Carregando...",
+        "cancel": "Cancelar"
     },
     "search": {
         "title": "Configurações de pesquisa",
@@ -479,12 +498,25 @@
         "generalSettings": "Configurações gerais",
         "generalSettingsDescription": "Configurações básicas de gestos do mouse",
         "enabled": "Ativar os gestos do mouse",
+        "enabledDescription": "Permite controlar o navegador com movimentos do mouse",
         "showTrail": "Mostrar rastro de gestos",
+        "showTrailDescription": "Desenhe uma linha seguindo os movimentos do mouse",
         "showLabel": "Mostrar etiqueta do gesto",
+        "showLabelDescription": "Exibir o nome da ação durante o gesto",
+        "sensitivitySettings": "Opções de sensibilidade",
+        "sensitivitySettingsDescription": "Ajustar sensibilidade ao reconhecimento de gestos.",
         "sensitivity": "Sensibilidade",
+        "sensitivityDescription": "Ajustar sensibilidade ao reconhecimento de gestos",
         "low": "Baixa",
         "high": "Alta",
+        "minDistance": "Distância mínima",
+        "minDistanceDescription": "Distância mínima de movimento para ser reconhecido como um gesto",
+        "preventionTimeout": "Tempo de supressão do clique com o botão direito do mouse",
+        "preventionTimeoutDescription": "Tempo para suprimir o meu do botão direito do mouse após o gesto",
+        "trailSettings": "Configurações de trilhas de gestos",
+        "trailSettingsDescription": "Personalize a aparência das trilhas de gestos.",
         "trailWidth": "Largura do rastro",
+        "trailWidthDescription": "Largura da linha de trilha do gesto",
         "trailColor": "Cor dos rastros",
         "actionsSettings": "Ações com gestos",
         "actionsSettingsDescription": "Configurar ações de gestos do mouse",

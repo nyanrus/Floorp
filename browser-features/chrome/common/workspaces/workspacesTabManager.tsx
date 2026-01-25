@@ -160,8 +160,13 @@ export class WorkspacesTabManager {
       );
     }
 
-    const maybeSelectedWorkspace =
-      this.getMaybeSelectedWorkspacebyVisibleTabs();
+    let maybeSelectedWorkspace = this.getWorkspaceIdFromAttribute(
+      globalThis.gBrowser.selectedTab as XULElement,
+    );
+
+    if (!maybeSelectedWorkspace) {
+      maybeSelectedWorkspace = this.getMaybeSelectedWorkspacebyVisibleTabs();
+    }
     if (maybeSelectedWorkspace) {
       this.changeWorkspace(maybeSelectedWorkspace);
     } else {
@@ -224,8 +229,7 @@ export class WorkspacesTabManager {
           // If the tab has a valid URL that is not a blank/newtab page,
           // it is likely a user-created tab (e.g. "Open Link in New Tab"),
           // so we should NOT ignore it.
-          const isBlankOrNewTab =
-            !url ||
+          const isBlankOrNewTab = !url ||
             url === "about:blank" ||
             url === "about:newtab" ||
             url === "about:home";
@@ -263,6 +267,25 @@ export class WorkspacesTabManager {
 
       if (otherWorkspaceTabs.length > 0) {
         // There are tabs in other workspaces.
+        // Check if exitOnLastTabClose is enabled - if not, just create a new tab
+        // and switch to another workspace instead of closing the window.
+        if (!configStore.exitOnLastTabClose) {
+          console.debug(
+            "WorkspacesTabManager: workspace empty, exitOnLastTabClose=false, switching to another workspace",
+            { workspaceId, otherWorkspaceTabCount: otherWorkspaceTabs.length },
+          );
+
+          // Find the first workspace with tabs and switch to it
+          const firstOtherTab = otherWorkspaceTabs[0];
+          const targetWorkspaceId = this.getWorkspaceIdFromAttribute(
+            firstOtherTab,
+          );
+          if (targetWorkspaceId) {
+            this.changeWorkspace(targetWorkspaceId);
+          }
+          return;
+        }
+
         console.debug(
           "WorkspacesTabManager: workspace empty, closing window with replacement check",
           { workspaceId, otherWorkspaceTabCount: otherWorkspaceTabs.length },
@@ -301,6 +324,27 @@ export class WorkspacesTabManager {
         }, 0);
       } else {
         // If no other workspace tabs exist, this is the last tab in the window.
+        // Check if exitOnLastTabClose is enabled - if not, create a new tab
+        // instead of closing the window.
+        if (!configStore.exitOnLastTabClose) {
+          console.debug(
+            "WorkspacesTabManager: last tab in window, exitOnLastTabClose=false, creating new tab",
+            { workspaceId },
+          );
+          // Firefox already created a replacement tab due to closeWindowWithLastTab=false,
+          // so we just need to assign it to the current workspace.
+          const remainingTabs = (globalThis.gBrowser.tabs as XULElement[])
+            .filter((t) => t !== tab);
+          if (remainingTabs.length > 0) {
+            const newTab = remainingTabs[0];
+            this.setWorkspaceIdToAttribute(newTab, workspaceId);
+            globalThis.gBrowser.selectedTab = newTab;
+          } else {
+            this.createTabForWorkspace(workspaceId, true);
+          }
+          return;
+        }
+
         // We should close the window manually because we force closeWindowWithLastTab=false.
         Services.prefs.setBoolPref(WORKSPACE_PENDING_EXIT_PREF_NAME, true);
         setTimeout(() => {
@@ -315,8 +359,7 @@ export class WorkspacesTabManager {
       const tab = (event as CustomEvent).target as XULElement;
       const now = Date.now();
       this.recentOpenedAtByTab.set(tab, now);
-      const wsId =
-        this.getWorkspaceIdFromAttribute(tab) ??
+      const wsId = this.getWorkspaceIdFromAttribute(tab) ??
         this.dataManagerCtx.getSelectedWorkspaceID();
       if (!this.getWorkspaceIdFromAttribute(tab)) {
         this.setWorkspaceIdToAttribute(tab, wsId);
@@ -487,8 +530,8 @@ export class WorkspacesTabManager {
       select,
       url,
     });
-    const targetURL =
-      url ?? Services.prefs.getStringPref("browser.startup.homepage");
+    const targetURL = url ??
+      Services.prefs.getStringPref("browser.startup.homepage");
     console.debug(
       "gBrowser.addTab called in createTabForWorkspace with url:",
       targetURL,
@@ -591,8 +634,8 @@ export class WorkspacesTabManager {
           console.debug("gBrowser.addTab called in changeWorkspace");
           const newTab = globalThis.gBrowser.addTab("about:newtab", {
             skipAnimation: true,
-            triggeringPrincipal:
-              Services.scriptSecurityManager.getSystemPrincipal(),
+            triggeringPrincipal: Services.scriptSecurityManager
+              .getSystemPrincipal(),
           });
           globalThis.gBrowser.selectedTab = newTab;
         } catch (finalError) {
@@ -646,9 +689,11 @@ export class WorkspacesTabManager {
    * @returns true if there is no workspace tabs if false, return tab.
    */
   public isThereNoWorkspaceTabs() {
-    for (const tab of globalThis.gBrowser.tabs as Array<
-      XULElement | undefined | null
-    >) {
+    for (
+      const tab of globalThis.gBrowser.tabs as Array<
+        XULElement | undefined | null
+      >
+    ) {
       if (!tab) continue;
       if (!tab.hasAttribute(WORKSPACE_TAB_ATTRIBUTION_ID)) {
         return tab;

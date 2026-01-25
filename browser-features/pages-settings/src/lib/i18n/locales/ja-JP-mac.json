@@ -282,8 +282,8 @@
         "openProfileSaveLocation": "プロファイルの保存先を開く",
         "mozillaAccountSyncSettings": "Mozilla アカウントの同期設定",
         "syncedTo": "{{email}} に同期中",
-        "sync{{productName}}NotesToMozillaAccount": "{{productName}} Notes を Mozilla アカウントと同期 (実験的)",
-        "{{productName}}FeatureSyncSettings": "{{productName}} 機能の同期設定",
+        "syncNotesToMozillaAccount": "{{productName}} Notes を Mozilla アカウントと同期 (実験的)",
+        "featureSyncSettings": "{{productName}} 機能の同期設定",
         "manageMozillaAccount": "Mozilla アカウントを管理",
         "manageFirefoxFeatureSync": "Firefox 機能の同期を管理",
         "aboutMozillaAccount": "Mozilla アカウントについて",
@@ -337,10 +337,29 @@
             "confirmDisable": "本当にこの Flasco を無効にしますか？ 後で再度有効にできます。",
             "confirmEnable": "本当にこの Flasco を再度有効にしますか？",
             "lastUpdated": "最終更新:"
+        },
+        "availableFlascos": {
+            "title": "使用可能な Flasco",
+            "description": "お使いの {{productName}} バージョンで使用可能な Flasco です。一部はロールアウト制限のためご利用いただけない場合があります。",
+            "noExperiments": "使用可能な実験はありません。",
+            "rollout": "ロールアウト率: {{percentage}}%",
+            "forceEnroll": "参加",
+            "forceEnrolled": "参加中",
+            "removeForceEnrollment": "上書きを削除",
+            "confirmForceEnroll": "本当にこの Flasco に参加しますか？ 続ける場合、ロールアウト設定に上書きされます。",
+            "confirmRemoveForceEnrollment": "参加登録を解除し、通常のロールアウト動作に戻りますか？",
+            "status": {
+                "enrolled": "参加中",
+                "not_in_rollout": "ロールアウトしていません",
+                "force_enrolled": "参加中",
+                "disabled": "無効",
+                "control": "管理"
+            }
         }
     },
     "common": {
-        "loading": "読み込み中..."
+        "loading": "読み込み中...",
+        "cancel": "キャンセル"
     },
     "search": {
         "title": "設定を検索",
@@ -479,12 +498,25 @@
         "generalSettings": "一般設定",
         "generalSettingsDescription": "マウスジェスチャーの基本設定",
         "enabled": "マウスジェスチャーを有効にする",
+        "enabledDescription": "マウス操作でブラウザーをコントロールします",
         "showTrail": "ジェスチャーの軌跡を表示",
+        "showTrailDescription": "マウスの軌跡に沿って線を表示",
         "showLabel": "ジェスチャー中にアクション名を表示",
+        "showLabelDescription": "ジェスチャー中にアクション名を表示",
+        "sensitivitySettings": "感度の設定",
+        "sensitivitySettingsDescription": "ジェスチャーの認識感度を調整します。",
         "sensitivity": "感度",
+        "sensitivityDescription": "ジェスチャーの認識感度を調整します",
         "low": "低",
         "high": "高",
+        "minDistance": "最小距離",
+        "minDistanceDescription": "ジェスチャーとして認識される最短の移動距離",
+        "preventionTimeout": "右クリックを抑制する時間",
+        "preventionTimeoutDescription": "ジェスチャー後に右クリックメニューを表示しない時間",
+        "trailSettings": "軌跡の設定",
+        "trailSettingsDescription": "ジェスチャーの軌跡の外観をカスタマイズします。",
         "trailWidth": "軌跡の太さ",
+        "trailWidthDescription": "ジェスチャーの軌跡の太さ",
         "trailColor": "軌跡の色",
         "actionsSettings": "ジェスチャーアクション",
         "actionsSettingsDescription": "マウスジェスチャーのアクションを設定",

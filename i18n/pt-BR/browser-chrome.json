@@ -106,12 +106,6 @@
   "statusbar": {
     "toggle": "Barra de status{{mark}}"
   },
-  "splitview": {
-    "tab-context": {
-      "temporarily-unavailable": "A visualização dividida está temporariamente indisponível",
-      "details": "Detalhes"
-    }
-  },
   "ssb": {
     "menu": {
       "webapps": "Aplicativos Web",
@@ -369,6 +363,11 @@
       "defaultExtensionName": "esta extensão",
       "chromeBadge": "[Chrome]",
       "compatibilityWarning": "Esta extensão do Chrome foi convertida para um formato compatível com o Firefox. Alguns recursos podem não funcionar corretamente."
+    }
+  },
+  "hub": {
+    "menu": {
+      "title": "Floorp Hub"
     }
   }
 }

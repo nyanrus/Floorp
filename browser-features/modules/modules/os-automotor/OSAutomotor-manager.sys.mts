@@ -29,6 +29,7 @@ interface SubprocessCallOptions {
   arguments?: string[];
   stdout?: SubprocessStdOption;
   stderr?: SubprocessStdOption;
+  environment?: Record<string, string>;
 }
 
 interface SubprocessProcess {
@@ -36,6 +37,7 @@ interface SubprocessProcess {
   stderr?: SubprocessPipe;
   kill(): Promise<void>;
   wait(): Promise<SubprocessResult>;
+  pid?: number;
 }
 
 interface SubprocessModule {
@@ -51,10 +53,11 @@ const GITHUB_FRONTEND_RELEASE_URL =
 const FLOORP_OS_ENABLED_PREF = "floorp.os.enabled";
 const FLOORP_OS_BINARY_PATH_PREF = "floorp.os.binaryPath";
 const FLOORP_OS_VERSION_PREF = "floorp.os.version";
-const CURRENT_VERSION = "v0.5.6-alpha";
-const CURRENT_FRONTEND_VERSION = "v0.0.2";
+const CURRENT_VERSION = "v0.13.3";
+const CURRENT_FRONTEND_VERSION = "v0.13.3";
 const FLOORP_FRONTEND_BINARY_PATH_PREF = "floorp.os.frontendBinaryPath";
 const FLOORP_FRONTEND_VERSION_PREF = "floorp.os.frontendVersion";
+const FLOORP_OS_INIAD_API_KEY_PREF = "floorp.os.iniad.apiKey";
 const FLOORP_OS_DIR_NAME = "floorp-os";
 const RUNTIME_STATE_FILE_NAME = "runtime-state.json";
 
@@ -74,38 +77,84 @@ interface RuntimeState {
 
 class OSAutomotorManager {
   private _initialized = false;
+  private _initPromise: Promise<void> | null = null;
   private _binaryProcess: SpawnedProcess | null = null;
   private _frontendProcess: SpawnedProcess | null = null;
   private _runtimeState: RuntimeState | null = null;
+  private _shutdownObserver: (() => void) | null = null;
 
   constructor() {
-    if (this._initialized) {
-      return;
-    }
-
-    this.initialize();
-    this._initialized = true;
+    // Start initialization and track the promise
+    this._initPromise = this.initialize();
   }
 
   /**
    * Initialize the OSAutomotor manager
    */
   private async initialize(): Promise<void> {
-    await this.recoverFromUncleanShutdown();
-    // Check if Floorp OS is enabled
-    const isEnabled = Services.prefs.getBoolPref(FLOORP_OS_ENABLED_PREF, false);
+    try {
+      console.log("[Floorp OS] OSAutomotor initialize starting...");
+      await this.recoverFromUncleanShutdown();
+      this.setupShutdownObserver();
 
-    if (isEnabled) {
-      await this.ensureBinaryInstalled();
-      await this.startFloorpOS();
-      // Ensure and start frontend web server
-      try {
-        await this.ensureFrontendInstalled();
-        await this.startFrontend();
-      } catch (e) {
-        console.error("[Floorp OS] Failed to initialize frontend:", e);
+      // Check if Floorp OS is enabled
+      const isEnabled = Services.prefs.getBoolPref(
+        FLOORP_OS_ENABLED_PREF,
+        false,
+      );
+      console.log(`[Floorp OS] floorp.os.enabled = ${isEnabled}`);
+
+      if (isEnabled) {
+        console.log("[Floorp OS] Starting Floorp OS...");
+        await this.ensureBinaryInstalled();
+        await this.startFloorpOS();
+        // Ensure and start frontend web server
+        try {
+          await this.ensureFrontendInstalled();
+          await this.startFrontend();
+        } catch (e) {
+          console.error("[Floorp OS] Failed to initialize frontend:", e);
+        }
+        console.log("[Floorp OS] Floorp OS initialization complete.");
+      } else {
+        console.log("[Floorp OS] Floorp OS is disabled, skipping startup.");
       }
+      this._initialized = true;
+    } catch (error) {
+      console.error("[Floorp OS] Initialization failed:", error);
+      // Mark as initialized even on failure to prevent repeated attempts
+      this._initialized = true;
+      throw error;
     }
+  }
+
+  /**
+   * Setup shutdown observer to stop processes on browser quit
+   */
+  private setupShutdownObserver(): void {
+    if (this._shutdownObserver) {
+      return;
+    }
+
+    this._shutdownObserver = () => {
+      console.log(
+        "[Floorp OS] Browser shutdown detected, stopping processes...",
+      );
+      // Use synchronous-style cleanup - stopFloorpOS is async but we fire-and-forget
+      // because quit-application-granted doesn't wait for async operations
+      this.stopFloorpOS().catch((error) => {
+        console.error(
+          "[Floorp OS] Error stopping processes on shutdown:",
+          error,
+        );
+      });
+    };
+
+    Services.obs.addObserver(
+      this._shutdownObserver,
+      "quit-application-granted",
+    );
+    console.log("[Floorp OS] Shutdown observer registered.");
   }
 
   /**
@@ -125,8 +174,41 @@ class OSAutomotorManager {
     ) {
       return {
         supported: true,
-        binaryName: `Sapphillon-Controller-v0.5.6-alpha-x86_64-pc-windows-msvc.exe`,
+        binaryName: `Sapphillon-Controller-${CURRENT_VERSION}-x86_64-pc-windows-msvc.exe`,
         frontendBinaryName: `sapphillon-front-web-server-${CURRENT_FRONTEND_VERSION}-x86_64-pc-windows-msvc.exe`,
+      };
+    }
+
+    // macOS ARM64
+    if (os === "macosx" && (arch === "aarch64" || arch === "arm64")) {
+      return {
+        supported: true,
+        binaryName: `Sapphillon-Controller-${CURRENT_VERSION}-aarch64-apple-darwin`,
+        frontendBinaryName: `sapphillon-front-web-server-${CURRENT_FRONTEND_VERSION}-aarch64-apple-darwin`,
+      };
+    }
+
+    // Linux x86_64
+    if (
+      os === "linux" &&
+      (arch === "x86_64" ||
+        arch === "x86-64" ||
+        arch === "x64" ||
+        arch.toLowerCase().includes("amd64"))
+    ) {
+      return {
+        supported: true,
+        binaryName: `Sapphillon-Controller-${CURRENT_VERSION}-x86_64-unknown-linux-gnu`,
+        frontendBinaryName: `sapphillon-front-web-server-${CURRENT_FRONTEND_VERSION}-x86_64-unknown-linux-gnu`,
+      };
+    }
+
+    // Linux ARM64
+    if (os === "linux" && (arch === "aarch64" || arch === "arm64")) {
+      return {
+        supported: true,
+        binaryName: `Sapphillon-Controller-${CURRENT_VERSION}-aarch64-unknown-linux-gnu`,
+        frontendBinaryName: `sapphillon-front-web-server-${CURRENT_FRONTEND_VERSION}-aarch64-unknown-linux-gnu`,
       };
     }
 
@@ -176,7 +258,7 @@ class OSAutomotorManager {
       throw new Error("Platform not supported");
     }
 
-    const downloadUrl = `https://r2.floorp.app/${platformInfo.binaryName}`;
+    const downloadUrl = `https://os.floorp.app/automator/${platformInfo.binaryName}`;
     const floorpOSDir = this.getFloorpOSDirectory();
     const binaryPath = this.getBinaryPath();
 
@@ -333,7 +415,28 @@ class OSAutomotorManager {
     }
 
     try {
-      const process = await this.spawnProcess(binaryPath, ["start"], "core");
+      const floorpOSDir = this.getFloorpOSDirectory();
+      const dbPath = PathUtils.join(floorpOSDir, "sqlite.db");
+      // Convert backslashes to forward slashes for SQLite URL format
+      const dbPathNormalized = dbPath.replace(/\\/g, "/");
+      const dbUrl = `sqlite://${dbPathNormalized}`;
+      const environment: Record<string, string> = {
+        HOME: Services.dirsvc.get("Home", Ci.nsIFile).path,
+      };
+      const iniadApiKey = Services.prefs.getStringPref(
+        FLOORP_OS_INIAD_API_KEY_PREF,
+        "",
+      );
+      if (iniadApiKey) {
+        environment.INIAD_API_KEY = iniadApiKey;
+      }
+
+      const process = await this.spawnProcess(
+        binaryPath,
+        ["--db-url", dbUrl, "start"],
+        "core",
+        environment,
+      );
       this._binaryProcess = process;
       await this.updateRuntimeState({
         corePid: this.getProcessPid(process),
@@ -361,10 +464,15 @@ class OSAutomotorManager {
     }
 
     try {
+      const environment: Record<string, string> = {
+        SAPPHILLON_GRPC_BASE_URL: "http://localhost:50051",
+        HOME: Services.dirsvc.get("Home", Ci.nsIFile).path,
+      };
       const process = await this.spawnProcess(
         frontendPath,
         ["start"],
         "frontend",
+        environment,
       );
       this._frontendProcess = process;
       await this.updateRuntimeState({
@@ -379,14 +487,17 @@ class OSAutomotorManager {
   /**
    * Stop the Floorp OS binary
    */
-  public stopFloorpOS(): void {
+  /**
+   * Stop the Floorp OS binary
+   */
+  public async stopFloorpOS(): Promise<void> {
     if (this._binaryProcess) {
-      this.killSpawnedProcess(this._binaryProcess, "core");
+      await this.killSpawnedProcess(this._binaryProcess, "core");
       this._binaryProcess = null;
     }
-    void this.updateRuntimeState({ corePid: null });
+    await this.updateRuntimeState({ corePid: null });
     // Stop frontend if running
-    this.stopFrontend();
+    await this.stopFrontend();
   }
 
   /**
@@ -430,9 +541,12 @@ class OSAutomotorManager {
   /**
    * Disable Floorp OS
    */
-  public disableFloorpOS(): void {
+  /**
+   * Disable Floorp OS
+   */
+  public async disableFloorpOS(): Promise<void> {
     Services.prefs.setBoolPref(FLOORP_OS_ENABLED_PREF, false);
-    this.stopFloorpOS();
+    await this.stopFloorpOS();
   }
 
   /**
@@ -455,12 +569,15 @@ class OSAutomotorManager {
   /**
    * Stop the frontend process
    */
-  public stopFrontend(): void {
+  /**
+   * Stop the frontend process
+   */
+  public async stopFrontend(): Promise<void> {
     if (this._frontendProcess) {
-      this.killSpawnedProcess(this._frontendProcess, "frontend");
+      await this.killSpawnedProcess(this._frontendProcess, "frontend");
       this._frontendProcess = null;
     }
-    void this.updateRuntimeState({ frontendPid: null });
+    await this.updateRuntimeState({ frontendPid: null });
   }
 
   /**
@@ -469,13 +586,13 @@ class OSAutomotorManager {
   private async resetInstallation(): Promise<void> {
     // Stop any running processes first
     try {
-      this.stopFrontend();
+      await this.stopFrontend();
     } catch (e) {
       console.error("[Floorp OS] Error stopping frontend during reset:", e);
     }
 
     try {
-      this.stopFloorpOS();
+      await this.stopFloorpOS();
     } catch (e) {
       console.error("[Floorp OS] Error stopping core binary during reset:", e);
     }
@@ -610,12 +727,14 @@ class OSAutomotorManager {
     executablePath: string,
     args: string[],
     kind: "core" | "frontend",
+    environment?: Record<string, string>,
   ): Promise<SpawnedProcess> {
     const process = await Subprocess.call({
       command: executablePath,
       arguments: args,
       stdout: "pipe",
       stderr: "pipe",
+      environment,
     });
 
     const label = kind === "core" ? "Controller" : "Frontend";
@@ -677,14 +796,18 @@ class OSAutomotorManager {
     });
   }
 
-  private killSpawnedProcess(
+  private async killSpawnedProcess(
     process: SpawnedProcess,
     kind: "core" | "frontend",
-  ): void {
+  ): Promise<void> {
     const label = kind === "core" ? "Controller" : "Frontend";
-    void process.kill().catch((error: unknown) => {
+    try {
+      await process.kill();
+      await process.wait();
+      console.info(`[Floorp OS] ${label} stopped successfully.`);
+    } catch (error) {
       console.error(`[Floorp OS] Failed to stop ${label}:`, error);
-    });
+    }
   }
 
   private getFloorpOSDirectory(): string {
@@ -701,9 +824,9 @@ class OSAutomotorManager {
     if (!process) {
       return null;
     }
-    const maybePid = (process as unknown as { pid?: number }).pid;
-    if (typeof maybePid === "number" && Number.isFinite(maybePid)) {
-      return maybePid;
+    const pid = process.pid;
+    if (typeof pid === "number" && Number.isFinite(pid)) {
+      return pid;
     }
     return null;
   }
@@ -733,7 +856,41 @@ class OSAutomotorManager {
     } catch (error) {
       console.error("[Floorp OS] Failed to read current process ID:", error);
     }
-    const command = AppConstants.platform === "win" ? "taskkill" : "kill";
+
+    // Safe Check: Verify process name before killing
+    try {
+      const platformInfo = this.getPlatformInfo();
+      const expectedName =
+        kind === "core"
+          ? platformInfo.binaryName
+          : platformInfo.frontendBinaryName;
+
+      if (!expectedName) {
+        console.warn(
+          `[Floorp OS] No expected binary name for ${kind}, skipping safe kill.`,
+        );
+        return;
+      }
+
+      const isProcessMatch = await this.verifyProcessName(pid, expectedName);
+      if (!isProcessMatch) {
+        console.warn(
+          `[Floorp OS] Process ${pid} does not match expected name ${expectedName}. Skipping kill to prevent data loss.`,
+        );
+        return;
+      }
+    } catch (error) {
+      console.error(
+        `[Floorp OS] Error verifying process ${pid} for ${kind}:`,
+        error,
+      );
+      return;
+    }
+
+    const command =
+      AppConstants.platform === "win"
+        ? "C:\\Windows\\System32\\taskkill.exe"
+        : "kill";
     const args =
       AppConstants.platform === "win"
         ? ["/PID", String(pid), "/T", "/F"]
@@ -754,6 +911,70 @@ class OSAutomotorManager {
         `[Floorp OS] Failed to terminate ${kind} process by pid ${pid}:`,
         error,
       );
+    }
+  }
+
+  /**
+   * Verify if the process with the given PID matches the expected binary name.
+   */
+  private async verifyProcessName(
+    pid: number,
+    expectedName: string,
+  ): Promise<boolean> {
+    const isWindows = AppConstants.platform === "win";
+
+    try {
+      if (isWindows) {
+        // Windows: tasklist /FI "PID eq <pid>" /FO CSV /NH
+        const process = await Subprocess.call({
+          command: "C:\\Windows\\System32\\tasklist.exe",
+          arguments: ["/FI", `PID eq ${pid}`, "/FO", "CSV", "/NH"],
+          stdout: "pipe",
+          stderr: "pipe",
+        });
+
+        let output = "";
+        const stdout = process.stdout;
+        if (stdout) {
+          while (true) {
+            const chunk = await stdout.readString();
+            if (chunk === null) break;
+            output += chunk;
+          }
+        }
+        await process.wait();
+
+        return output.toLowerCase().includes(expectedName.toLowerCase());
+      } else {
+        // Unix: ps -p <pid> -o comm=
+        const process = await Subprocess.call({
+          command: "ps",
+          arguments: ["-p", String(pid), "-o", "comm="],
+          stdout: "pipe",
+          stderr: "pipe",
+        });
+
+        let output = "";
+        const stdout = process.stdout;
+        if (stdout) {
+          while (true) {
+            const chunk = await stdout.readString();
+            if (chunk === null) break;
+            output += chunk;
+          }
+        }
+        await process.wait();
+
+        const processName = output.trim();
+        return (
+          processName.length > 0 &&
+          (expectedName.includes(processName) ||
+            processName.includes(expectedName))
+        );
+      }
+    } catch (e) {
+      console.error(`[Floorp OS] Failed to verify process name for ${pid}:`, e);
+      return false;
     }
   }
 
@@ -803,7 +1024,7 @@ class OSAutomotorManager {
     const encoder = new TextEncoder();
     const content = encoder.encode(JSON.stringify(state));
     try {
-      await IOUtils.write(statePath, content, { mode: "create" });
+      await IOUtils.write(statePath, content, { mode: "overwrite" });
     } catch (error) {
       console.error("[Floorp OS] Failed to write runtime state:", error);
     }

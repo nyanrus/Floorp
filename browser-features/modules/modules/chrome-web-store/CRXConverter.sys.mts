@@ -35,6 +35,8 @@ import {
   mightContainUnsupportedPatterns,
 } from "./CodeValidator.sys.mts";
 import { unzipSync, zipSync, type Unzipped } from "fflate/browser";
+import { OFFSCREEN_POLYFILL_SOURCE } from "./polyfills/offscreen/OffscreenPolyfillSource.sys.mts";
+import { DOCUMENT_ID_POLYFILL_SOURCE } from "./polyfills/documentId/DocumentIdPolyfillSource.sys.mts";
 
 // =============================================================================
 // Constants
@@ -246,6 +248,28 @@ export class CRXConverterClass {
     const manifestJson = JSON.stringify(firefoxManifest, null, 2);
     outputFiles["manifest.json"] = new TextEncoder().encode(manifestJson);
 
+    // Inject Offscreen Polyfill if needed
+    if (
+      firefoxManifest.background?.scripts?.includes(
+        "__floorp_polyfills__/OffscreenPolyfill.js",
+      )
+    ) {
+      log("Injecting Offscreen Polyfill source...");
+      outputFiles["__floorp_polyfills__/OffscreenPolyfill.js"] =
+        new TextEncoder().encode(OFFSCREEN_POLYFILL_SOURCE);
+    }
+
+    // Inject DocumentId Polyfill if needed
+    if (
+      firefoxManifest.background?.scripts?.includes(
+        "__floorp_polyfills__/DocumentIdPolyfill.js",
+      )
+    ) {
+      log("Injecting DocumentId Polyfill source...");
+      outputFiles["__floorp_polyfills__/DocumentIdPolyfill.js"] =
+        new TextEncoder().encode(DOCUMENT_ID_POLYFILL_SOURCE);
+    }
+
     // Process other files
     let processedCount = 0;
     for (const [filename, data] of Object.entries(unzipped)) {
@@ -275,8 +299,13 @@ export class CRXConverterClass {
           const sanitizedRules = sanitizeDNRRules(rules);
           const sanitizedJson = JSON.stringify(sanitizedRules, null, 2);
           outputFiles[filename] = new TextEncoder().encode(sanitizedJson);
-        } catch {
-          // Fallback to original
+        } catch (e) {
+          // Fallback to original with warning
+          warnings.push(
+            `Failed to sanitize DNR rules in ${filename}: ${
+              e instanceof Error ? e.message : String(e)
+            }`,
+          );
           outputFiles[filename] = data;
         }
       } else {

@@ -106,12 +106,6 @@
   "statusbar": {
     "toggle": "狀態列{{mark}}"
   },
-  "splitview": {
-    "tab-context": {
-      "temporarily-unavailable": "暫時無法使用分割檢視",
-      "details": "詳細資訊"
-    }
-  },
   "ssb": {
     "menu": {
       "webapps": "PWA 應用程式",
@@ -369,6 +363,11 @@
       "defaultExtensionName": "this extension",
       "chromeBadge": "[Chrome]",
       "compatibilityWarning": "This Chrome extension has been converted to Firefox compatible format. Some features may not work properly."
+    }
+  },
+  "hub": {
+    "menu": {
+      "title": "Floorp Hub"
     }
   }
 }

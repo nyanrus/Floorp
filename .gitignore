@@ -15,9 +15,3 @@ target/
 logs/
 .serena/
 .env
-
-# Browser automation tool artifacts
-tools/browser-automation/.floorp-dev/
-tools/browser-automation/.floorp-dev.zip
-tools/browser-automation/test-screenshot.png
-tools/browser-automation/*.png

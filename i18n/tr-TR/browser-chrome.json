@@ -92,7 +92,7 @@
     },
     "menu": {
       "moveTabToAnotherWorkspace": "Sekmeyi Başka Bir Çalışma Alanına Taşı",
-      "openLinkInWorkspace": "Open Link in Another Workspace",
+      "openLinkInWorkspace": "Bağlantıyı Başka Bir Çalışma Alanında Aç",
       "noOtherWorkspace": "No other workspaces available"
     },
     "error": {
@@ -105,12 +105,6 @@
   },
   "statusbar": {
     "toggle": "Durum Çubuğu{{mark}}"
-  },
-  "splitview": {
-    "tab-context": {
-      "temporarily-unavailable": "Split View is temporarily unavailable",
-      "details": "Details"
-    }
   },
   "ssb": {
     "menu": {
@@ -369,6 +363,11 @@
       "defaultExtensionName": "this extension",
       "chromeBadge": "[Chrome]",
       "compatibilityWarning": "This Chrome extension has been converted to Firefox compatible format. Some features may not work properly."
+    }
+  },
+  "hub": {
+    "menu": {
+      "title": "Floorp Hub"
     }
   }
 }

@@ -80,6 +80,9 @@ export class WorkspacesService implements WorkspacesDataManagerBase {
       restoreArchivedWorkspace: this.restoreArchivedWorkspace.bind(this),
       deleteArchivedWorkspace: this.deleteArchivedWorkspace.bind(this),
       resetWorkspaces: this.resetWorkspaces.bind(this),
+      getSelectedWorkspaceID: this.getSelectedWorkspaceID.bind(this),
+      changeWorkspace: this.changeWorkspace.bind(this),
+      isWorkspaceID: this.isWorkspaceID.bind(this),
     };
 
     if (workspacesDataStore.data.size === 0) {
@@ -98,6 +101,8 @@ export class WorkspacesService implements WorkspacesDataManagerBase {
         "TabOpen",
         this.boundHandleTabOpen,
       );
+      window.SessionStore.persistTabAttribute(WORKSPACE_TAB_ATTRIBUTION_ID);
+      window.SessionStore.persistTabAttribute(WORKSPACE_LAST_SHOW_ID);
     });
 
     onCleanup(() => {
