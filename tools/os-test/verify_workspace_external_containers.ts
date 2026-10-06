@@ -19,6 +19,7 @@ import { parseArgs } from "@std/cli/parse-args";
 import { assert, assertEquals } from "@std/assert";
 import { join, resolve } from "@std/path";
 import { MarionetteClient } from "../src/browser_connector.ts";
+import { runWorkspaceExternalContainerCleanup } from "./workspace_external_containers_cleanup.ts";
 
 const args = parseArgs(Deno.args, {
   string: ["binary"],
@@ -246,19 +247,21 @@ async function hot(): Promise<void> {
   let initialized = false;
   try {
     await probe.ready();
+    initialized = true;
     const contexts = await probe.chrome<{ workspace: number; other: number }>(
       `
 const {ContextualIdentityService} = ChromeUtils.importESModule('moz-src:///toolkit/components/contextualidentity/ContextualIdentityService.sys.mjs');
 const {NavigableManager} = ChromeUtils.importESModule('chrome://remote/content/shared/NavigableManager.sys.mjs');
 window.floorp2823Backup = {
   store: Services.prefs.getStringPref(arguments[0]), selected: workspacesFuncs.getSelectedWorkspaceID(),
-  handle: NavigableManager.getIdForBrowser(gBrowser.selectedBrowser),
+  handle: NavigableManager.getIdForBrowser(gBrowser.selectedBrowser), contexts: [],
   prefs: [arguments[1], 'floorp.workspaces.enabled'].map(name => ({name,
     had: Services.prefs.prefHasUserValue(name), value: Services.prefs.getBoolPref(name, name !== arguments[1])})),
 };
 const workspace = ContextualIdentityService.create('External workspace test', 'fingerprint', 'blue').userContextId;
+window.floorp2823Backup.contexts.push(workspace);
 const other = ContextualIdentityService.create('External explicit/guess test', 'briefcase', 'orange').userContextId;
-window.floorp2823Backup.contexts = [workspace, other];
+window.floorp2823Backup.contexts.push(other);
 const store = JSON.parse(window.floorp2823Backup.store);
 store.data.find(([id]) => id === window.floorp2823Backup.selected)[1].userContextId = workspace;
 store.defaultID = arguments[2];
@@ -270,7 +273,6 @@ Services.prefs.setBoolPref('floorp.workspaces.enabled', true);
 return {workspace, other};`,
       [storePref, forcePref, defaultID],
     );
-    initialized = true;
     const { workspace, other } = contexts;
     for (
       const [cid, marker] of [[0, "default"], [workspace, "workspace"], [
@@ -443,41 +445,59 @@ return NavigableManager.getIdForBrowser(win.gBrowser.selectedBrowser);`,
       "window.floorp2823Private.close(); delete window.floorp2823Private;",
     );
   } finally {
-    if (initialized) {
-      // Return to the owned main window even after a new-window assertion.
-      await probe.chrome(
-        `const main = [...Services.wm.getEnumerator('navigator:browser')].find(w => w.floorp2823Backup);
-        if (main) main.focus();`,
-      );
-      const mainHandle = await probe.chrome<string>(
-        `const main = [...Services.wm.getEnumerator('navigator:browser')].find(w => w.floorp2823Backup);
-        return main.floorp2823Backup.handle;`,
-      );
-      await probe.switchTo(mainHandle);
-      // Context 0 persists independently of the two disposable identities.
-      const clean = urlFor("cleanup");
-      await probe.direct(clean, 0, "cleanup");
-      await probe.content(clean);
-      await client.setContext("content");
-      await client.executeScript("localStorage.removeItem(arguments[0]);", [
-        key,
-      ]);
-      await probe.chrome(
-        `const backup = window.floorp2823Backup;
+    await runWorkspaceExternalContainerCleanup([
+      async () => {
+        if (!initialized) return;
+        // Restore the profile before navigation, tab closure or handle changes
+        // can fail. Each restore action is independent of the others.
+        const restored = await probe.chrome<{
+          handle: string;
+          errors: string[];
+        }>(
+          `const main = [...Services.wm.getEnumerator('navigator:browser')].find(w => w.floorp2823Backup);
+if (!main) throw new Error('external container fixture backup window is unavailable');
+const backup = main.floorp2823Backup, errors = [];
+const attempt = fn => { try { fn(); } catch (error) { errors.push(String(error)); } };
 const {ContextualIdentityService} = ChromeUtils.importESModule('moz-src:///toolkit/components/contextualidentity/ContextualIdentityService.sys.mjs');
+attempt(() => Services.prefs.setStringPref(arguments[0], backup.store));
+for (const p of backup.prefs) attempt(() => { if (p.had) Services.prefs.setBoolPref(p.name,p.value); else Services.prefs.clearUserPref(p.name); });
+for (const id of [0, ...backup.contexts]) attempt(() => Services.cookies.remove('127.0.0.1', arguments[1], '/', {userContextId:id}));
+for (const id of backup.contexts) attempt(() => ContextualIdentityService.remove(id));
+return {handle: backup.handle, errors};`,
+          [storePref, key],
+        );
+        await probe.switchTo(restored.handle);
+        assertEquals(restored.errors.length, 0, restored.errors.join("\n"));
+      },
+      async () => {
+        if (!initialized) return;
+        await probe.chrome(
+          `const main = [...Services.wm.getEnumerator('navigator:browser')].find(w => w.floorp2823Backup);
 for (const win of Services.wm.getEnumerator('navigator:browser')) {
   for (const tab of [...win.gBrowser.tabs]) if (tab.hasAttribute('floorp2823-test')) win.gBrowser.removeTab(tab, {animate:false});
 }
-window.floorp2823NewWindow?.close(); window.floorp2823Private?.close();
-for (const id of [0, ...backup.contexts]) Services.cookies.remove('127.0.0.1', arguments[2], '/', {userContextId:id});
-Services.prefs.setStringPref(arguments[0], backup.store);
-for (const p of backup.prefs) { if (p.had) Services.prefs.setBoolPref(p.name,p.value); else Services.prefs.clearUserPref(p.name); }
-for (const id of backup.contexts) ContextualIdentityService.remove(id);
-delete window.floorp2823Backup; delete window.floorp2823NewWindow; delete window.floorp2823Private;`,
-        [storePref, forcePref, key],
-      );
-    }
-    await client.close();
+main?.floorp2823NewWindow?.close(); main?.floorp2823Private?.close();
+if (main) { delete main.floorp2823Backup; delete main.floorp2823NewWindow; delete main.floorp2823Private; }`,
+        );
+      },
+      async () => {
+        if (!initialized) return;
+        // Context 0 persists independently of the disposable identities.
+        const clean = urlFor("cleanup");
+        await probe.direct(clean, 0, "cleanup");
+        await probe.content(clean);
+        await client.setContext("content");
+        await client.executeScript("localStorage.removeItem(arguments[0]);", [
+          key,
+        ]);
+      },
+      async () => {
+        if (initialized) await probe.closeTab();
+      },
+      async () => {
+        await client.close();
+      },
+    ]);
   }
 }
 

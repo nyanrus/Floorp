@@ -14,6 +14,8 @@ For real external URL opens:
 - Forced default, disabled Workspaces, unavailable/deleted identities and
   private browsing do not introduce a workspace container.
 - Loading into the current tab retains its existing browsing context/container.
+- Modifier-clicked bookmarks select their workspace container before creating
+  the content browser, including the mirrored bookmark toolbar.
 
 The patch does not migrate cookies/storage or change identities of existing
 tabs. The upstream special case for an empty external URL or `about:blank` still
@@ -26,6 +28,8 @@ Runtime patch, and check that production and development patches agree:
 
 ```sh
 deno test --frozen --allow-read tools/src/workspace_external_containers_patch.test.ts
+deno test --frozen --allow-read tools/src/workspace_external_containers_cleanup.test.ts
+deno task test -- --near browser-features/chrome/common/ui-custom/test/bookmarkWorkspaceContainer.test.ts
 ```
 
 Apply Runtime patches through the normal development/package path. For
@@ -49,7 +53,9 @@ disabled Workspaces, existing container preservation, new windows and private
 windows. It compares tab/browser attributes, browsing-context and principal
 origin attributes, workspace assignment, the server's received Cookie, document
 cookies and localStorage. It restores the workspace preference and removes only
-its own tabs, identities, cookies and storage.
+its own tabs, identities, cookies and storage. Profile restoration runs before
+content cleanup; failures in cleanup still attempt closing the cleanup tab and
+the Marionette client.
 
 The cold runner owns an isolated temporary profile and subprocesses. It tests
 the actual command-line handler on first launch, restart with persisted

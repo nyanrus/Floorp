@@ -5,6 +5,7 @@
 
 import { createEffect } from "solid-js";
 import { config } from "#features-chrome/common/designs/configs.ts";
+import Workspaces from "#features-chrome/common/workspaces/index.ts";
 
 const DOM_LAYOUT_MANAGER_DEBUG_PREFIX = "[DOMLayoutManager]";
 
@@ -691,7 +692,7 @@ function preserveEventState(original: Event, clone: Event): void {
  * @param mouseEvent The mouse event to determine modifier keys
  * @returns true if the URI was loaded successfully, false otherwise
  */
-function loadBookmarkURI(uri: string, mouseEvent: MouseEvent): boolean {
+export function loadBookmarkURI(uri: string, mouseEvent: MouseEvent): boolean {
   const win = window as typeof window & {
     gBrowser?: {
       loadURI: (uri: unknown, options?: unknown) => void;
@@ -700,6 +701,7 @@ function loadBookmarkURI(uri: string, mouseEvent: MouseEvent): boolean {
         options?: {
           triggeringPrincipal?: unknown;
           inBackground?: boolean;
+          userContextId?: number;
         },
       ) => unknown;
     };
@@ -734,6 +736,8 @@ function loadBookmarkURI(uri: string, mouseEvent: MouseEvent): boolean {
       win.gBrowser.addTab(uri, {
         triggeringPrincipal: principal,
         inBackground: false,
+        userContextId:
+          Workspaces.getCtx(win)?.getCurrentWorkspaceUserContextId() ?? 0,
       });
     } else if (win.gBrowser.loadURI && uriObject) {
       // Open in current tab - need to convert string URI to URI object
