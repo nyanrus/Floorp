@@ -18,17 +18,13 @@ const MOBILE_UA =
 const httpRequestObserver = {
   QueryInterface: ChromeUtils.generateQI(["nsIObserver"]),
 
-  // deno-lint-ignore no-explicit-any
-  observe: (channel: any, topic: string) => {
-    const topLevelWindow = getBrowserById(channel.browserId);
-
-    if (
-      topic !== "http-on-modify-request" ||
-      !(channel instanceof Ci.nsIHttpChannel) ||
-      !topLevelWindow?.floorpBmsUserAgent
-    ) {
+  observe: (subject: nsISupports, topic: string) => {
+    if (topic !== "http-on-modify-request" || !(subject instanceof Ci.nsIHttpChannel)) {
       return;
     }
+
+    const channel = subject as nsIHttpChannel;
+    if (!getWebPanelWindowByBrowserId(channel.browserId)) return;
 
     try {
       channel.setRequestHeader("User-Agent", MOBILE_UA, false);
@@ -38,31 +34,28 @@ const httpRequestObserver = {
   },
 };
 
-function getBrowserById(browserId: string): Window | null {
-  for (const win of BrowserWindowTracker.orderedWindows) {
-    if (!win.floorpWebPanelWindow) {
-      continue;
-    }
+export function getWebPanelWindowByBrowserId(
+  browserId: number,
+  windows: readonly Window[] = BrowserWindowTracker.orderedWindows,
+): Window | null {
+  // A missing ID must never match an uninitialized browser.
+  if (!browserId) return null;
+  for (const win of windows) {
+    if (
+      win.floorpWebPanelWindow && win.floorpBmsUserAgent &&
+      win.floorpWebPanelContentBrowser?.browserId === browserId
+    ) return win;
 
-    const contentBrowser = win.floorpWebPanelContentBrowser as
-      | { browserId?: string }
-      | undefined;
-    if (contentBrowser?.browserId === browserId && win.floorpBmsUserAgent) {
-      return win;
-    }
-  }
-
-  for (const win of BrowserWindowTracker.orderedWindows) {
-    if (!win.gBrowser) {
-      continue;
-    }
-
-    for (const tab of win.gBrowser.visibleTabs) {
-      if (tab.linkedPanel) {
-        if (tab.linkedBrowser && tab.linkedBrowser.browserId === browserId) {
-          return tab.linkedBrowser.ownerGlobal;
-        }
-      }
+    // Web panels embed browser.xhtml inside a sidebar <browser>; those child
+    // windows are not necessarily in BrowserWindowTracker. Match the inner
+    // content browser, never the sidebar host or a normal browser tab.
+    for (const host of win.document.querySelectorAll(".sidebar-panel-browser")) {
+      const child = (host as XULBrowserElement).browsingContext
+        ?.associatedWindow as Window | undefined;
+      if (
+        child?.floorpWebPanelWindow && child.floorpBmsUserAgent &&
+        child.floorpWebPanelContentBrowser?.browserId === browserId
+      ) return child;
     }
   }
   return null;
