@@ -360,6 +360,57 @@ async function testHoverCancellationAndInteractionGuards(): Promise<void> {
   });
 }
 
+async function testEscapeCancelsPendingReopening(): Promise<void> {
+  await withOverlay(async () => {
+    enterPanel();
+    await waitForOpen();
+    assert(isPanelSidebarHoverOpen(), "hover must first open the preview");
+    // Re-entering a panel icon while the preview is open queues another opening.
+    enterPanel();
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    );
+    assert(
+      !isPanelSidebarHoverOpen(),
+      "Escape must immediately hide the preview",
+    );
+    await waitForOpen();
+    assert(
+      !isPanelSidebarHoverOpen(),
+      "Escape must cancel a pending timer that would reopen the preview",
+    );
+  });
+}
+
+async function testRemovingBlockingPopupClosesPreview(): Promise<void> {
+  await withOverlay(async () => {
+    enterPanel();
+    await waitForOpen();
+    const popup = document.createXULElement("menupopup");
+    document.documentElement.append(popup);
+    try {
+      popup.dispatchEvent(new Event("popupshown", { bubbles: true }));
+      leaveSidebar();
+      await waitForClose();
+      assert(isPanelSidebarHoverOpen(), "the popup must block the close check");
+      popup.remove();
+      // No popuphidden or pointer/focus event should be needed to resume closing.
+      await waitForClose();
+      assert(
+        !isPanelSidebarHoverOpen(),
+        "removing a blocking popup must close the idle preview",
+      );
+      assertEquals(
+        selectedPanelId(),
+        panelId,
+        "popup cleanup must retain the selected panel document",
+      );
+    } finally {
+      popup.remove();
+    }
+  });
+}
+
 async function testFullscreenSuppressesPendingHover(): Promise<void> {
   await withOverlay(async () => {
     const root = document.documentElement;
@@ -415,6 +466,14 @@ export async function runAllTests(): Promise<void> {
     {
       name: "hover cancels pending work and protects focus, menus and dragging",
       fn: testHoverCancellationAndInteractionGuards,
+    },
+    {
+      name: "Escape cancels a queued hover preview reopening",
+      fn: testEscapeCancelsPendingReopening,
+    },
+    {
+      name: "removing a blocking popup closes an idle hover preview",
+      fn: testRemovingBlockingPopupClosesPreview,
     },
     {
       name: "video fullscreen cancels hover and suppresses pinned overlays",

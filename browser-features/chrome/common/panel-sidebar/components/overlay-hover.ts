@@ -36,6 +36,9 @@ export class PanelSidebarHover {
   private readonly pointerState = createSignal(false);
   private readonly draggingState = createSignal(false);
   private readonly popups = new Set<Element>();
+  private readonly popupRemovalObserver = new MutationObserver(() => {
+    if (this.pruneRemovedPopups()) this.scheduleClose();
+  });
 
   private suppressed(): boolean {
     const root = document.documentElement;
@@ -144,6 +147,7 @@ export class PanelSidebarHover {
       this.cancelOpen();
       this.cancelClose();
       visibilityObserver.disconnect();
+      this.popupRemovalObserver.disconnect();
       this.popups.clear();
       document.removeEventListener("mouseover", this.onMouseOver, true);
       document.removeEventListener("mouseout", this.onMouseOut, true);
@@ -228,12 +232,22 @@ export class PanelSidebarHover {
       this.hasPopup();
   }
 
-  private hasPopup(): boolean {
+  private pruneRemovedPopups(): boolean {
     // A popup can be removed without dispatching popuphidden. Detached menus
-    // must not keep later hover previews open indefinitely.
+    // must release a preview even after its close check was blocked.
+    let removed = false;
     for (const popup of this.popups) {
-      if (!popup.isConnected) this.popups.delete(popup);
+      if (!popup.isConnected) {
+        this.popups.delete(popup);
+        removed = true;
+      }
     }
+    if (this.popups.size === 0) this.popupRemovalObserver.disconnect();
+    return removed;
+  }
+
+  private hasPopup(): boolean {
+    this.pruneRemovedPopups();
     return this.popups.size > 0 ||
       document.querySelector(
           "panel[panelopen], menupopup[state='open'], menupopup[state='showing']",
@@ -277,11 +291,16 @@ export class PanelSidebarHover {
       event.target instanceof Element && event.target.localName !== "tooltip"
     ) {
       this.popups.add(event.target);
+      this.popupRemovalObserver.observe(document.documentElement, {
+        childList: true,
+        subtree: true,
+      });
       this.cancelClose();
     }
   };
   private onPopupHidden = (event: Event): void => {
     if (event.target instanceof Element) this.popups.delete(event.target);
+    if (this.popups.size === 0) this.popupRemovalObserver.disconnect();
     this.scheduleClose();
   };
   private onDragStart = (): void => {
@@ -305,6 +324,7 @@ export class PanelSidebarHover {
       !this.hasPopup()
     ) {
       this.cancelClose();
+      this.cancelOpen();
       setIsPanelSidebarHoverOpen(false);
       if (this.inRegion(document.activeElement)) {
         (globalThis.gBrowser.selectedBrowser as unknown as HTMLElement).focus();

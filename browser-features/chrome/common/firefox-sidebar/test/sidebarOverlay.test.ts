@@ -421,6 +421,38 @@ async function testRemovedPopupDoesNotRetainPanel(): Promise<void> {
   });
 }
 
+async function testRemovingBlockingPopupClosesPreview(): Promise<void> {
+  await withSidebar(async () => {
+    await setModes(true, true);
+    hover(true);
+    await waitFor(
+      () => native.isOpen && Boolean(firefoxSidebarOverlay?.expanded),
+      "native hover must first open the panel",
+    );
+    const popup = document.createXULElement("menupopup");
+    document.documentElement.appendChild(popup);
+    try {
+      popup.dispatchEvent(new Event("popupshown", { bubbles: true }));
+      hover(false);
+      focusContent();
+      await new Promise((resolve) => setTimeout(resolve, 450));
+      assert(
+        firefoxSidebarOverlay?.expanded,
+        "the popup must block the native close check",
+      );
+      popup.remove();
+      // Removal must resume closing without popuphidden or a new input event.
+      await waitFor(
+        () => !firefoxSidebarOverlay?.expanded,
+        "removing a blocking popup must close the idle native preview",
+      );
+      assert(native.isOpen, "popup cleanup must preserve the native document");
+    } finally {
+      popup.remove();
+    }
+  });
+}
+
 async function testPendingOpenInvalidation(): Promise<void> {
   await withSidebar(async () => {
     const originalShow = native.showInitially;
@@ -662,6 +694,10 @@ export async function runAllTests(): Promise<void> {
     {
       name: "removed popups release native hover panels and Escape",
       fn: testRemovedPopupDoesNotRetainPanel,
+    },
+    {
+      name: "removing a blocking popup closes an idle native hover preview",
+      fn: testRemovingBlockingPopupClosesPreview,
     },
     {
       name: "failed native hover opening waits for a new gesture",

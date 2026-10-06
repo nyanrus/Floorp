@@ -55,6 +55,9 @@ export class FirefoxSidebarOverlayController {
   private closeTimer: ReturnType<typeof globalThis.setTimeout> | undefined;
   private frame: number | undefined;
   private readonly popups = new Set<Element>();
+  private readonly popupRemovalObserver = new MutationObserver(() => {
+    if (this.pruneRemovedPopups()) this.scheduleClose();
+  });
   private resizeObserver: ResizeObserver | undefined;
   private mutationObserver: MutationObserver | undefined;
   private readonly listeners: Array<() => void> = [];
@@ -262,11 +265,16 @@ export class FirefoxSidebarOverlayController {
         target.localName !== "tooltip"
       ) {
         this.popups.add(target);
+        this.popupRemovalObserver.observe(document.documentElement, {
+          childList: true,
+          subtree: true,
+        });
         this.clearCloseTimer();
       }
     }, true);
     this.listen(document, "popuphidden", (event) => {
       if (event.target instanceof Element) this.popups.delete(event.target);
+      if (this.popups.size === 0) this.popupRemovalObserver.disconnect();
       this.scheduleClose();
     }, true);
     this.listen(
@@ -430,12 +438,22 @@ export class FirefoxSidebarOverlayController {
     return document.hasFocus() && this.contains(document.activeElement);
   }
 
-  private hasPopup(): boolean {
+  private pruneRemovedPopups(): boolean {
     // Extension menus and chrome fixtures can remove an open popup without
     // firing popuphidden. Detached menus must not keep the sidebar expanded.
+    let removed = false;
     for (const popup of this.popups) {
-      if (!popup.isConnected) this.popups.delete(popup);
+      if (!popup.isConnected) {
+        this.popups.delete(popup);
+        removed = true;
+      }
     }
+    if (this.popups.size === 0) this.popupRemovalObserver.disconnect();
+    return removed;
+  }
+
+  private hasPopup(): boolean {
+    this.pruneRemovedPopups();
     return this.popups.size > 0;
   }
 
@@ -718,6 +736,8 @@ export class FirefoxSidebarOverlayController {
     this.frame = undefined;
     this.resizeObserver?.disconnect();
     this.mutationObserver?.disconnect();
+    this.popupRemovalObserver.disconnect();
+    this.popups.clear();
     for (const remove of this.listeners) remove();
     this.listeners.length = 0;
     this.trigger?.remove();
