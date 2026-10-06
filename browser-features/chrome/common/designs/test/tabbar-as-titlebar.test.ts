@@ -40,27 +40,44 @@ const DESIGNS = [
 const browser = gBrowser as TitlebarTestBrowser;
 
 function snapshotPref(name: string) {
+  const defaults = Services.prefs.getDefaultBranch("");
   return {
     name,
     hadUserValue: Services.prefs.prefHasUserValue(name),
     value: Services.prefs.getBoolPref(name, false),
+    hadDefaultValue: Services.prefs.prefHasDefaultValue(name),
+    defaultValue: defaults.getBoolPref(name, false),
   };
 }
 
 function restorePref(pref: ReturnType<typeof snapshotPref>): void {
+  const defaults = Services.prefs.getDefaultBranch("");
+  if (pref.hadDefaultValue) {
+    defaults.setBoolPref(pref.name, pref.defaultValue);
+  } else if (Services.prefs.prefHasDefaultValue(pref.name)) {
+    // deleteBranch removes both branches, so restore the user value afterward.
+    defaults.deleteBranch(pref.name);
+  }
   if (pref.hadUserValue) {
     Services.prefs.setBoolPref(pref.name, pref.value);
   } else {
     Services.prefs.clearUserPref(pref.name);
-    // Switching designs can apply user.js defaults even when the starting
-    // Proton/Fluerial design does not mirror legacy prefs.
-    if (Services.prefs.getBoolPref(pref.name, false) !== pref.value) {
-      Services.prefs.getDefaultBranch("").setBoolPref(pref.name, pref.value);
-    }
   }
 }
 
 function assertRestoredPref(pref: ReturnType<typeof snapshotPref>): void {
+  assertEquals(
+    Services.prefs.prefHasDefaultValue(pref.name),
+    pref.hadDefaultValue,
+    `${pref.name} must restore its default-value state`,
+  );
+  if (pref.hadDefaultValue) {
+    assertEquals(
+      Services.prefs.getDefaultBranch("").getBoolPref(pref.name),
+      pref.defaultValue,
+      `${pref.name} must restore its default value`,
+    );
+  }
   assertEquals(
     Services.prefs.prefHasUserValue(pref.name),
     pref.hadUserValue,
@@ -379,6 +396,52 @@ async function testFixtureRestoresNativeDesignLegacyPrefs(): Promise<void> {
   });
 }
 
+async function testFixtureRestoresBothPreferenceBranches(): Promise<void> {
+  await withTitlebarTabs(async () => {
+    const name = "userChrome.icon.menu";
+    const defaults = Services.prefs.getDefaultBranch("");
+    const states = [
+      { defaultValue: undefined, userValue: undefined },
+      { defaultValue: false, userValue: undefined },
+      { defaultValue: false, userValue: true },
+      { defaultValue: undefined, userValue: true },
+    ];
+    for (const design of ["proton", "fluerial"] as const) {
+      setConfig((previous) => ({
+        ...previous,
+        globalConfigs: { ...previous.globalConfigs, userInterface: design },
+      }));
+      await new Promise((resolve) => setTimeout(resolve, 25));
+      for (const state of states) {
+        defaults.deleteBranch(name);
+        if (state.defaultValue !== undefined) {
+          defaults.setBoolPref(name, state.defaultValue);
+        }
+        if (state.userValue !== undefined) {
+          Services.prefs.setBoolPref(name, state.userValue);
+        }
+        const previous = snapshotPref(name);
+        await withTitlebarTabs(async () => {
+          setConfig((settings) => ({
+            ...settings,
+            globalConfigs: {
+              ...settings.globalConfigs,
+              userInterface: "lepton",
+            },
+          }));
+          await waitFor(
+            () =>
+              defaults.getBoolPref(name, false) &&
+              !Services.prefs.getBoolPref(name, true),
+            "Lepton must change the default and effective fixture values",
+          );
+        });
+        assertRestoredPref(previous);
+      }
+    }
+  });
+}
+
 await runTests("tabbar-as-titlebar.test.ts", [
   {
     name: "titlebar tabs support boolean attributes and active vendor rules",
@@ -399,5 +462,10 @@ await runTests("tabbar-as-titlebar.test.ts", [
   {
     name: "fixture cleanup restores legacy preferences for Proton and Fluerial",
     fn: testFixtureRestoresNativeDesignLegacyPrefs,
+  },
+  {
+    name:
+      "fixture cleanup preserves absent, default-only, and user preference states",
+    fn: testFixtureRestoresBothPreferenceBranches,
   },
 ]);
