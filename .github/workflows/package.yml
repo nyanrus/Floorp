@@ -672,6 +672,10 @@ jobs:
           set -euo pipefail
           for patch in noraneko/.github/patches/floorp-runtime/common/*.patch; do
             [ -e "$patch" ] || continue
+            if git apply --reverse --check "$patch" >/dev/null 2>&1; then
+              echo "Already applied by the Runtime source build: $(basename "$patch")"
+              continue
+            fi
             echo "Applying Floorp Runtime patch: $(basename "$patch")"
             git apply --check "$patch"
             git apply --verbose "$patch"
