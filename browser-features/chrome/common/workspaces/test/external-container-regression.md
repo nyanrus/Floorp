@@ -15,7 +15,8 @@ For real external URL opens:
   private browsing do not introduce a workspace container.
 - Loading into the current tab retains its existing browsing context/container.
 - Modifier-clicked bookmarks select their workspace container before creating
-  the content browser, including the mirrored bookmark toolbar.
+  the content browser, including the mirrored bookmark toolbar. Private windows,
+  disabled features and unavailable public identities use container 0.
 
 The patch does not migrate cookies/storage or change identities of existing
 tabs. The upstream special case for an empty external URL or `about:blank` still
@@ -29,6 +30,7 @@ Runtime patch, and check that production and development patches agree:
 ```sh
 deno test --frozen --allow-read tools/src/workspace_external_containers_patch.test.ts
 deno test --frozen --allow-read tools/src/workspace_external_containers_cleanup.test.ts
+deno test --frozen --allow-read tools/src/bookmark_workspace_containers.test.ts
 deno task test -- --near browser-features/chrome/common/ui-custom/test/bookmarkWorkspaceContainer.test.ts
 ```
 
