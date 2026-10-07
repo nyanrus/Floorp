@@ -22,7 +22,7 @@ MOBILE_UA = (
     "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 "
     "Mobile Safari/537.36 Edg/114.0.1823.79"
 )
-STATE = "Services.appShell.hiddenDOMWindow.__floorpFinalUAProbe"
+STATE = "window.wrappedJSObject.__floorpFinalUAProbe"
 LOGGER = logging.getLogger(__name__)
 
 
@@ -163,7 +163,7 @@ def main():
         require(identity["startupMode"] not in ("dev", "test") and
                 not identity["httpLoaderAllowed"], "Expected shipped modules without a development loader")
         client.script(f"""
-            {STATE}={{main:window.wrappedJSObject, ids:{{}}, retired:[]}};
+            {STATE}={{main:window.wrappedJSObject, ids:{{}}, retired:[], commands:[]}};
             {STATE}.observer={{observe(subject){{
                 const channel=subject.QueryInterface(Ci.nsIHttpChannel);
                 if(channel.URI.spec.startsWith(argumentsBase)){{
@@ -281,7 +281,37 @@ def main():
             pointer(f'#{identifier}', button=2)
             h.wait_for("Web Panel context menu", lambda: client.script(
                 "return window.document.getElementById('webpanel-context')?.state==='open';"), 15)
-            pointer(f'#{command}')
+            before = client.script(f"return {STATE}.commands.length;")
+            h.wait_for(f"Web Panel menu command {command}", lambda: client.script(f"""
+                const popup=window.document.getElementById('webpanel-context');
+                const item=window.document.getElementById(arguments[0]);
+                if(!item||!popup.contains(item)||item.hidden||item.disabled)return false;
+                item.addEventListener('command',event=>{{
+                    {STATE}.commands.push({{id:event.target.id, trusted:event.isTrusted}});
+                }},{{once:true}});
+                return true;
+            """, command), 15)
+            if platform.system() == "Darwin":
+                # Native AppKit menus have no DOM hit rectangle. Use the same
+                # trusted native-popup API as the project's sidebar UI tests.
+                client.script("""
+                    const popup=window.document.getElementById('webpanel-context');
+                    popup.activateItem(window.document.getElementById(arguments[0]));
+                """, command)
+                method = "XULPopupElement.activateItem on open native menu"
+            else:
+                pointer(f'#{command}')
+                method = "WebDriver pointer click"
+            observed = h.wait_for(f"trusted command {command}", lambda: client.script(f"""
+                const events={STATE}.commands.slice(arguments[0]);
+                return events.length?events:null;
+            """, before), 15)
+            require(observed == [{"id": command, "trusted": True}],
+                    f"Unexpected Web Panel command events: {observed}")
+            h.wait_for("Web Panel menu closure", lambda: client.script(
+                "return window.document.getElementById('webpanel-context')?.state==='closed';"), 15)
+            report["checks"].append({"key": "menu-command", "panel": identifier,
+                                     "command": command, "method": method, "events": observed})
 
         pointer(f'#{panel_id}')
         request("initial-mobile", MOBILE_UA)
