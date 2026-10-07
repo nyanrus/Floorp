@@ -23,6 +23,8 @@ import { getWebPanelWindowByBrowserId } from "../utils/webRequest.ts";
 // A loopback HTTP echo server using shipped XPCOM APIs, so the colocated
 // runner does not need a mochitest-only testing-common resource mapping.
 async function testNetworkUserAgent(): Promise<void> {
+  const mobileUA =
+    "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Mobile Safari/537.36 Edg/114.0.1823.79";
   const server = Cc["@mozilla.org/network/server-socket;1"].createInstance(
     Ci.nsIServerSocket,
   );
@@ -278,6 +280,7 @@ async function testNetworkUserAgent(): Promise<void> {
 
     controller.changeUserAgent(id);
     const disabled = await ready(id, false);
+    const disabledId = disabled.browserId;
     assert(
       disabled.browserId !== originalId,
       "settings toggle must recreate the content browser",
@@ -300,7 +303,7 @@ async function testNetworkUserAgent(): Promise<void> {
     controller.changeUserAgent(id);
     const enabled = await ready(id, true);
     assertEquals(
-      getWebPanelWindowByBrowserId(disabled.browserId),
+      getWebPanelWindowByBrowserId(disabledId),
       null,
       "retired desktop panel browser must not match",
     );
@@ -332,6 +335,27 @@ async function testNetworkUserAgent(): Promise<void> {
       desktopUA,
       "removing mobile panel must not affect another panel",
     );
+    for (
+      const key of [
+        "initial-mobile",
+        "mobile",
+        "mobile-navigation",
+        "background-mobile",
+        "reenabled",
+      ]
+    ) {
+      assert(
+        received.has(key),
+        `server must receive ${key} requests`,
+      );
+      for (const actualUA of received.get(key)!) {
+        assertEquals(
+          actualUA,
+          mobileUA,
+          `${key} must send the exact mobile UA`,
+        );
+      }
+    }
   } finally {
     Services.obs.removeObserver(observer, "http-on-modify-request");
     if (tab) gBrowser.removeTab(tab);

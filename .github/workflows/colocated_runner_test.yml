@@ -414,8 +414,8 @@ jobs:
         if: matrix.browser_suite == true
         run: deno test -A tools/src/colocated_test_runner.test.ts
 
-      - name: Upload logs on failure
-        if: failure() && matrix.browser_suite == true
+      - name: Upload browser integration evidence
+        if: always() && matrix.browser_suite == true
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: test-logs-${{ matrix.runner }}
