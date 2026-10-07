@@ -58,8 +58,11 @@ def validate_packaging_provenance(record, pin, runtime_head_sha, expected_build_
     if len(application_ini) > 32 * 1024:
         raise ValueError("Runtime application.ini exceeds the size limit")
     ini = configparser.ConfigParser(interpolation=None, strict=True)
+    ini.optionxform = str
     try:
         ini.read_string(application_ini.decode("utf-8"))
+        # Match canonical App-local, case-sensitive identity extraction.
+        ini.defaults().clear()
         identity = (ini["App"]["Version"], ini["App"]["BuildID"])
     except (UnicodeError, configparser.Error, KeyError) as error:
         raise ValueError("Invalid Runtime application.ini identity") from error

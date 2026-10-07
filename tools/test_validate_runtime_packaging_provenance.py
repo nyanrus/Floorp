@@ -73,6 +73,22 @@ class PackagingProvenanceTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 self.check_record(RECORD, ini)
 
+    def test_rejects_case_normalized_identity_keys(self):
+        for ini in (INI.replace(b"Version", b"version"),
+                    INI.replace(b"BuildID", b"buildid")):
+            with self.subTest(ini=ini), self.assertRaises(ValueError):
+                self.check_record(RECORD, ini)
+
+    def test_rejects_identity_inherited_from_default_section(self):
+        for ini in (INI.replace(b"[App]", b"[DEFAULT]") + b"[App]\n",
+                    b"[DEFAULT]\nVersion=157.0.1\n[App]\nBuildID=" + BUILD_ID.encode() + b"\n",
+                    b"[DEFAULT]\nBuildID=" + BUILD_ID.encode() + b"\n[App]\nVersion=157.0.1\n"):
+            with self.subTest(ini=ini), self.assertRaises(ValueError):
+                self.check_record(RECORD, ini)
+
+    def test_app_local_identity_overrides_unrelated_default_section(self):
+        self.check_record(RECORD, b"[DEFAULT]\nVersion=157.0\nBuildID=20261006125927\n" + INI)
+
     def test_rejects_untrusted_commit_and_invalid_expected_timestamp(self):
         for sha, build in (("branch", BUILD_ID), (RUNTIME_SHA, "20261307125927"),
                            (RUNTIME_SHA, "not-a-build-id")):

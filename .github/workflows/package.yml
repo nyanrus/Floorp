@@ -844,6 +844,7 @@ jobs:
           path: ${{ runner.temp }}/floorp-runtime-v2-support/runtime-packaging-provenance.json
           if-no-files-found: error
           retention-days: 7
+          overwrite: true
 
       - name: Preserve verified compiled Runtime source provenance
         if: >-
