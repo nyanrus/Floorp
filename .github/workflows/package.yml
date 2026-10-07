@@ -717,7 +717,7 @@ jobs:
         env:
           PLATFORM_KEY: ${{ steps.provenance.outputs.platform_key }}
           RUNTIME_ARTIFACT_NAME: ${{ steps.provenance.outputs.runtime_artifact_name }}
-          RUNTIME_HEAD_SHA: ${{ steps.provenance.outputs.runtime_head_sha }}
+          RUNTIME_HEAD_SHA: ${{ steps.provenance.outputs.runtime_ref }}
           EXPECTED_BUILD_ID: ${{ steps.provenance.outputs.expected_build_id }}
           RUNTIME_DOWNLOAD_DIR: ${{ runner.temp }}/floorp-runtime-v2
           RUNTIME_SUPPORT_DIR: ${{ runner.temp }}/floorp-runtime-v2-support
