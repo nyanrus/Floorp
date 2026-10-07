@@ -143,6 +143,13 @@ async function testNetworkUserAgent(): Promise<void> {
         ua(key).includes("Mobile") === mobile,
       `${panelId} initial HTTP request`,
     );
+    if (mobile) {
+      assertEquals(
+        ua(key),
+        mobileUA,
+        "initial request must send exact mobile UA",
+      );
+    }
     await waitFor(
       () =>
         browser.currentURI?.spec === `${base}?${key}` &&
@@ -337,7 +344,6 @@ async function testNetworkUserAgent(): Promise<void> {
     );
     for (
       const key of [
-        "initial-mobile",
         "mobile",
         "mobile-navigation",
         "background-mobile",
