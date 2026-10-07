@@ -5,6 +5,11 @@ Floorp and before the artifact build. Keep Runtime changes here rather than
 editing a sibling Floorp-Runtime checkout. Validate patches against the source
 commit in `floorp-runtime.lock.json`, using an isolated checkout or source fixture.
 
+Packaging skips an exact reverse-applicable common patch that was already applied
+by the Runtime's upstream patch step. A missing patch is applied normally, while
+partially applied patches still fail validation. Native changes still require
+freshly compiled Runtime artifacts.
+
 `workspace-external-containers.patch` chooses the workspace container before
 creating a browser for external URL opens, including cold launch and new windows.
 It changes only the existing BrowserContentHandler and BrowserDOMWindow JavaScript
