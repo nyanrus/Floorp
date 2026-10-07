@@ -754,6 +754,9 @@ jobs:
             verify_source=true
             expected_entries+=("runtime-source-provenance.json")
           fi
+          if [[ "$PLATFORM_KEY" == mac ]]; then
+            expected_entries+=("runtime-packaging-provenance.json")
+          fi
           entry_count=0
           while IFS= read -r -d '' entry; do
             entry_count=$((entry_count + 1))
@@ -809,6 +812,14 @@ jobs:
               --runtime-head-sha "$RUNTIME_HEAD_SHA" \
               --floorp-patch noraneko/.github/patches/floorp-runtime/common/macos-app-shim-pwa-input-and-compositor.patch
           fi
+          if [[ "$PLATFORM_KEY" == mac ]]; then
+            python3 noraneko/tools/validate_runtime_packaging_provenance.py \
+              --record "$root/runtime-packaging-provenance.json" \
+              --pin .github/runtime-upstream.json \
+              --runtime-head-sha "$RUNTIME_HEAD_SHA" \
+              --expected-build-id "$EXPECTED_BUILD_ID" \
+              --application-ini "$root/floorp-application.ini"
+          fi
 
           rm -rf -- "$support"
           mkdir -p "$support" "$HOME/artifacts"
@@ -817,10 +828,23 @@ jobs:
           if [[ "$verify_source" == true ]]; then
             cp -- "$root/runtime-source-provenance.json" "$support/runtime-source-provenance.json"
           fi
+          if [[ "$PLATFORM_KEY" == mac ]]; then
+            cp -- "$root/runtime-packaging-provenance.json" "$support/runtime-packaging-provenance.json"
+          fi
           for file in "${primary_files[@]}"; do
             cp -- "$root/$file" "$HOME/artifacts/$file"
           done
           echo "Staged immutable Runtime artifact $RUNTIME_ARTIFACT_NAME"
+
+      - name: Preserve verified macOS Runtime packing provenance
+        if: ${{ steps.provenance.outputs.is_v2 == 'true' && steps.provenance.outputs.platform_key == 'mac' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: runtime-packaging-provenance-mac-${{ github.run_id }}
+          path: ${{ runner.temp }}/floorp-runtime-v2-support/runtime-packaging-provenance.json
+          if-no-files-found: error
+          retention-days: 7
+          overwrite: true
 
       - name: Preserve verified compiled Runtime source provenance
         if: >-
