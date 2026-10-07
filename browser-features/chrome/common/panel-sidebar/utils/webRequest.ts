@@ -19,7 +19,10 @@ const httpRequestObserver = {
   QueryInterface: ChromeUtils.generateQI(["nsIObserver"]),
 
   observe: (subject: nsISupports, topic: string) => {
-    if (topic !== "http-on-modify-request" || !(subject instanceof Ci.nsIHttpChannel)) {
+    if (
+      topic !== "http-on-modify-request" ||
+      !(subject instanceof Ci.nsIHttpChannel)
+    ) {
       return;
     }
 
@@ -39,21 +42,27 @@ export function getWebPanelWindowByBrowserId(
   windows: readonly Window[] = BrowserWindowTracker.orderedWindows,
 ): Window | null {
   // A missing ID must never match an uninitialized browser.
-  if (!browserId) return null;
+  if (!Number.isSafeInteger(browserId) || browserId <= 0) return null;
   for (const win of windows) {
+    if (win.closed) continue;
     if (
       win.floorpWebPanelWindow && win.floorpBmsUserAgent &&
+      win.floorpWebPanelContentBrowser?.isConnected !== false &&
       win.floorpWebPanelContentBrowser?.browserId === browserId
     ) return win;
 
     // Web panels embed browser.xhtml inside a sidebar <browser>; those child
     // windows are not necessarily in BrowserWindowTracker. Match the inner
     // content browser, never the sidebar host or a normal browser tab.
-    for (const host of win.document.querySelectorAll(".sidebar-panel-browser")) {
+    for (
+      const host of win.document.querySelectorAll(".sidebar-panel-browser")
+    ) {
       const child = (host as XULBrowserElement).browsingContext
         ?.associatedWindow as Window | undefined;
       if (
-        child?.floorpWebPanelWindow && child.floorpBmsUserAgent &&
+        child?.floorpWebPanelWindow && !child.closed &&
+        child.floorpBmsUserAgent &&
+        child.floorpWebPanelContentBrowser?.isConnected !== false &&
         child.floorpWebPanelContentBrowser?.browserId === browserId
       ) return child;
     }
