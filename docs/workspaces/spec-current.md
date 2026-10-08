@@ -249,7 +249,7 @@ preferences (キー名 "preferences") {
 
 ### 4.7 固定タブ・Essential
 
-- ピン留めタブに特別扱いは無い。他のタブと同じく `floorpWorkspaceId` を持ち、他のワークスペースでは隠れる。
+- ピン留めタブに特別扱いのコードは無い。他のタブと同じく `floorpWorkspaceId` を持つが、Firefox の `hideTab` は pinned を拒否する（Firefox 157.0.1 `Tabbrowser.sys.mjs` L7535-7611、静的な読み）ため、**他のワークスペースでも隠れず、全ワークスペースで見える可能性が高い（実機未検証）**。詳細は [research-essential-tabs.md](./research-essential-tabs.md)。
 - Essential（全ワークスペース共通の固定）の概念は存在しない。
 
 ### 4.8 分割表示とタブスタック
