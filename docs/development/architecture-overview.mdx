@@ -1,7 +1,7 @@
 ---
 title: "Architecture Overview"
 sidebar_label: "Architecture"
-floorp_commit: "9d672e5040aa20d2d32758a49161a09e4afc37c4"
+floorp_commit: "unknown"
 generated: true
 ---
 # Architecture Overview
@@ -141,6 +141,7 @@ CI workflows recorded in the docs inventory:
 - `.github/workflows/package_and_publish_alpha.yml` - triggers: `workflow_call`, `workflow_dispatch`
 - `.github/workflows/package_and_publish_release.yml` - triggers: `workflow_dispatch`
 - `.github/workflows/package.yml` - triggers: `workflow_call`, `workflow_dispatch`
+- `.github/workflows/ppa_index_check.yml` - triggers: `pull_request`, `push`
 - `.github/workflows/publish_alpha.yml` - triggers: `workflow_call`, `workflow_dispatch`
 - `.github/workflows/publish_ppa.yml` - triggers: `workflow_call`, `workflow_dispatch`
 - `.github/workflows/publish_release.yml` - triggers: `workflow_call`
