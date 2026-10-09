@@ -6,7 +6,6 @@ import styles from "../setup.module.css";
 import prompt from "./release-notes-prompt.module.css";
 import {
   createContext,
-  type MouseEvent,
   type ReactNode,
   useContext,
   useEffect,
@@ -106,16 +105,6 @@ export function useSetupReleaseNotesChoice() {
   return context;
 }
 
-// A plain <a target="_blank"> in this privileged page opens about:blank, so
-// route the support link through the browser window when the bridge is there.
-export function openReleaseNotesSupport(event: MouseEvent<HTMLAnchorElement>) {
-  // deno-lint-ignore no-window
-  if (typeof window.NROpenExternalLink !== "function") return;
-  event.preventDefault();
-  // deno-lint-ignore no-window
-  window.NROpenExternalLink(RELEASE_NOTES_SUPPORT_URL);
-}
-
 export function ReleaseNotesPrompt() {
   const { t } = useTranslation();
   const choice = useReleaseNotesChoice();
@@ -206,7 +195,6 @@ export function ReleaseNotesPrompt() {
                 href={RELEASE_NOTES_SUPPORT_URL}
                 target="_blank"
                 rel="noopener noreferrer"
-                onClick={openReleaseNotesSupport}
               >
                 {t("releaseNotes.learnMore")}
               </a>

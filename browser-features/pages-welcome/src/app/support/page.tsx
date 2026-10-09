@@ -2,10 +2,7 @@ import { useEffect } from "react";
 import { RadioCard } from "@chakra-ui/react";
 import { useTranslation } from "react-i18next";
 import Navigation from "../../components/Navigation.tsx";
-import {
-  openReleaseNotesSupport,
-  useSetupReleaseNotesChoice,
-} from "../../components/ReleaseNotesChoice.tsx";
+import { useSetupReleaseNotesChoice } from "../../components/ReleaseNotesChoice.tsx";
 import { SelectionBadge, SetupInfo } from "../../components/SetupControls.tsx";
 import {
   RELEASE_NOTES_MODES,
@@ -58,7 +55,6 @@ export default function SupportPage() {
           href={RELEASE_NOTES_SUPPORT_URL}
           target="_blank"
           rel="noopener noreferrer"
-          onClick={openReleaseNotesSupport}
         >
           {t("releaseNotes.learnMore")}
         </a>

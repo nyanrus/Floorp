@@ -19,7 +19,6 @@ declare global {
     ) => void;
     NRSetDefaultBrowser: (callback: (response: string) => void) => void;
     NRDismissWelcomePage: () => void;
-    NROpenExternalLink?: (url: string) => void;
   }
 }
 

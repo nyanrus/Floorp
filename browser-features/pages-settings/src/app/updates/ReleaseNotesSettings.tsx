@@ -1,4 +1,4 @@
-import { type MouseEvent, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Card,
@@ -13,16 +13,6 @@ import {
   RELEASE_NOTES_PREFS,
   RELEASE_NOTES_SUPPORT_URL,
 } from "../../../../modules/common/release-notes.ts";
-
-// A plain <a target="_blank"> in this privileged page opens about:blank, so
-// route the support link through the browser window when the bridge is there.
-function openSupportLink(event: MouseEvent<HTMLAnchorElement>) {
-  // deno-lint-ignore no-window
-  if (typeof window.NROpenExternalLink !== "function") return;
-  event.preventDefault();
-  // deno-lint-ignore no-window
-  window.NROpenExternalLink(RELEASE_NOTES_SUPPORT_URL);
-}
 
 const MODE_PREF = "floorp.releaseNotes.mode";
 const MODES = ["disabled", "blocking", "support"] as const;
@@ -112,7 +102,6 @@ export function ReleaseNotesSettings() {
           target="_blank"
           rel="noopener noreferrer"
           className="text-primary underline underline-offset-4 text-sm"
-          onClick={openSupportLink}
         >
           {t("updates.releaseNotes.learnMore")}
         </a>
