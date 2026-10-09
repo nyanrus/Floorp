@@ -960,8 +960,11 @@ export async function extractTarXzSafely(
 
 export async function findSingleTopLevelAppDirectory(
   mountRoot: string,
-  expectedAppName: string,
+  expectedAppName: string | readonly string[],
 ): Promise<string> {
+  const allowedNames = typeof expectedAppName === "string"
+    ? [expectedAppName]
+    : expectedAppName;
   const candidates: string[] = [];
   for await (const entry of Deno.readDir(mountRoot)) {
     if (!entry.name.toLocaleLowerCase("en-US").endsWith(".app")) continue;
@@ -972,11 +975,11 @@ export async function findSingleTopLevelAppDirectory(
     }
     candidates.push(entry.name);
   }
-  if (candidates.length !== 1 || candidates[0] !== expectedAppName) {
+  if (candidates.length !== 1 || !allowedNames.includes(candidates[0])) {
     throw new Error(
-      `Expected exactly one top-level ${expectedAppName} directory in DMG; found ${
-        JSON.stringify(candidates)
-      }.`,
+      `Expected exactly one top-level ${
+        allowedNames.join(" or ")
+      } directory in DMG; found ${JSON.stringify(candidates)}.`,
     );
   }
   return path.join(mountRoot, candidates[0]);

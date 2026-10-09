@@ -2091,10 +2091,12 @@ export async function copyDebugMacAppFromMountedDmg(
   const floorpRoot = path.join(destinationRoot, BRANDING.base_name);
   await Deno.mkdir(floorpRoot, { recursive: true });
   const expectedAppName = `${BRANDING.display_name}.app`;
-  const sourceApp = await findSingleTopLevelAppDirectory(
-    mountPoint,
+  // Debug runtime DMGs ship the bundle as "<name> DaylightDebug.app"; the
+  // installed copy keeps the canonical name so downstream paths stay unchanged.
+  const sourceApp = await findSingleTopLevelAppDirectory(mountPoint, [
     expectedAppName,
-  );
+    `${BRANDING.display_name} DaylightDebug.app`,
+  ]);
   await copyDirectoryTreeSafely(
     sourceApp,
     path.join(floorpRoot, expectedAppName),

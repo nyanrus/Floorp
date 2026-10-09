@@ -541,6 +541,28 @@ Deno.test("DMG-like safe copy selects one app and preserves outside sentinel", a
   }
 });
 
+Deno.test("DMG app lookup accepts any listed name and rejects other names", async () => {
+  const root = await Deno.makeTempDir();
+  try {
+    const mount = path.join(root, "mount");
+    const debugApp = path.join(mount, "Floorp DaylightDebug.app");
+    await Deno.mkdir(path.join(debugApp, "Contents"), { recursive: true });
+    const allowed = ["Floorp.app", "Floorp DaylightDebug.app"];
+
+    assertEquals(
+      await findSingleTopLevelAppDirectory(mount, allowed),
+      debugApp,
+    );
+    await assertRejects(
+      () => findSingleTopLevelAppDirectory(mount, ["Floorp.app"]),
+      Error,
+      "Expected exactly one top-level Floorp.app",
+    );
+  } finally {
+    await Deno.remove(root, { recursive: true });
+  }
+});
+
 Deno.test("DMG-like safe copy rejects source symlinks without touching their targets", async () => {
   const root = await Deno.makeTempDir();
   try {
