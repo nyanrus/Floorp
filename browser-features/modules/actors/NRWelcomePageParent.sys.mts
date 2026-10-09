@@ -12,14 +12,13 @@ function openExternalLinkInBrowser(
 ): boolean {
   try {
     const uri = Services.io.newURI(url);
-    console.error("[NR2787-debug] open: uri ok", uri.spec);
     if (!uri.schemeIs("http") && !uri.schemeIs("https")) {
-      console.error("[NR2787-debug] open: scheme rejected");
       return false;
     }
     const browser = actor.browsingContext?.top?.embedderElement;
-    console.error("[NR2787-debug] open: browser element", !!browser);
-    const win = browser?.ownerGlobal as
+    // `ownerGlobal` is not defined on the <browser> element in this build, so
+    // walk to the chrome window through its document instead.
+    const win = browser?.ownerDocument?.defaultView as
       | (Window & {
         openTrustedLinkIn?: (
           url: string,
@@ -32,11 +31,6 @@ function openExternalLinkInBrowser(
         ) => void;
       })
       | undefined;
-    console.error(
-      "[NR2787-debug] open: win",
-      !!win,
-      typeof win?.openTrustedLinkIn,
-    );
     if (!win || typeof win.openTrustedLinkIn !== "function") {
       return false;
     }
@@ -46,7 +40,6 @@ function openExternalLinkInBrowser(
       // Never let the new content tab inherit the system principal.
       allowInheritPrincipal: false,
     });
-    console.error("[NR2787-debug] open: openTrustedLinkIn returned");
     return true;
   } catch (error) {
     console.error("[noraneko] openExternalLinkInBrowser failed", error);
@@ -68,18 +61,6 @@ export class NRWelcomePageParent extends JSWindowActorParent {
           (uri.schemeIs("chrome") && uri.host === "noraneko-welcome") ||
           (uri.schemeIs("http") && uri.port === 5187 &&
             (uri.host === "localhost" || uri.host === "127.0.0.1"))
-        );
-        console.error(
-          "[NR2787-debug] recv: url",
-          !!url,
-          "isWelcomePage",
-          isWelcomePage,
-          "hasContext",
-          !!context,
-          "topLevel",
-          !context?.parent,
-          "isCurrent",
-          context?.currentWindowGlobal === manager,
         );
         if (
           url && isWelcomePage && context && !context.parent &&
